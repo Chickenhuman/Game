@@ -536,6 +536,19 @@ const DIALOGUE = {
   seraph_defeat: "Seraph Vale: If I fall... do not let them make a third."
 };
 
+const CONTROLS = {
+  moveLeft: ["ArrowLeft"],
+  moveRight: ["ArrowRight"],
+  jump: ["Space", "ArrowUp"],
+  lightAttack: ["KeyZ"],
+  heavyAttack: ["KeyX"],
+  dash: ["KeyC"],
+  parry: ["KeyV"],
+  skill: ["KeyA"],
+  interact: ["ArrowDown", "Enter"],
+  newRun: ["KeyN"]
+};
+
 const input = {
   down: new Set(),
   pressed: new Set()
@@ -546,10 +559,8 @@ window.addEventListener("keydown", (event) => {
     input.pressed.add(event.code);
   }
   input.down.add(event.code);
-  if ([
-    "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
-    "Space", "ShiftLeft", "ShiftRight", "Enter"
-  ].includes(event.code)) {
+  const reservedCodes = Object.values(CONTROLS).flat();
+  if (reservedCodes.includes(event.code)) {
     event.preventDefault();
   }
 });
@@ -861,9 +872,14 @@ function createEnemy(enemyId, x, y) {
     reach: template.reach,
     attackWindup: template.attackWindup,
     attackTimer: 0,
+    attackType: null,
+    attackWindupTotal: 0,
+    attackData: null,
     cooldown: 0.5,
     stun: 0,
     hurtFlash: 0,
+    leapTime: 0,
+    leapImpactPending: false,
     phaseIndex: 0,
     specialCooldown: 2,
     isBoss: false,
@@ -1083,7 +1099,7 @@ function addEffect(effect) {
   game.effects.push(effect);
 }
 
-function createProjectile(x, y, vx, vy, radius, color, damage, owner, life = 1.8) {
+function createProjectile(x, y, vx, vy, radius, color, damage, owner, life = 1.8, options = {}) {
   game.projectiles.push({
     x,
     y,
@@ -1095,7 +1111,12 @@ function createProjectile(x, y, vx, vy, radius, color, damage, owner, life = 1.8
     owner,
     life,
     maxLife: life,
-    trailTimer: 0
+    trailTimer: 0,
+    gravity: options.gravity || 0,
+    maxDistance: options.maxDistance || Infinity,
+    startX: x,
+    startY: y,
+    shape: options.shape || "direct"
   });
 }
 
@@ -1594,8 +1615,8 @@ function updatePlayer(dt) {
     return;
   }
 
-  const moveLeft = isDown("KeyA", "ArrowLeft");
-  const moveRight = isDown("KeyD", "ArrowRight");
+  const moveLeft = isDown(...CONTROLS.moveLeft);
+  const moveRight = isDown(...CONTROLS.moveRight);
   const axis = (moveRight ? 1 : 0) - (moveLeft ? 1 : 0);
 
   if (axis !== 0) {
@@ -1606,7 +1627,7 @@ function updatePlayer(dt) {
     player.doubleJumpReady = hasAbility("black_wing");
   }
 
-  if (wasPressed("KeyN")) {
+  if (wasPressed(...CONTROLS.newRun)) {
     startNewRun();
     clearPressed();
     return;
@@ -1630,7 +1651,7 @@ function updatePlayer(dt) {
     player.vx = axis * (player.speed + (oath.moveBonus || 0));
   }
 
-  if (wasPressed("Space", "KeyW", "ArrowUp")) {
+  if (wasPressed(...CONTROLS.jump)) {
     if (player.onGround) {
       player.vy = -700;
       player.onGround = false;
@@ -1648,22 +1669,15 @@ function updatePlayer(dt) {
     }
   }
 
-  if (wasPressed("ShiftLeft", "ShiftRight", "KeyX") && player.dashCooldown <= 0 && player.attackTime <= 0) {
+  if (wasPressed(...CONTROLS.parry)) {
+    player.parryTime = 0.24 + (oath.parryBonus || 0) + (relicMods.parryBonus || 0);
+    player.action = "parry";
+  } else if (wasPressed(...CONTROLS.dash) && player.dashCooldown <= 0 && player.attackTime <= 0 && player.skillTime <= 0) {
     player.dashTime = 0.16;
     player.dashCooldown = 0.4;
     player.invulnerable = 0.2;
     addCameraTrauma(0.08);
-  }
-
-  if (wasPressed("KeyJ") && player.attackTime <= 0 && player.skillTime <= 0) {
-    startPlayerAttack("light");
-  }
-
-  if (wasPressed("KeyK") && player.attackTime <= 0 && player.skillTime <= 0) {
-    startPlayerAttack("heavy");
-  }
-
-  if (wasPressed("KeyL") && player.skillTime <= 0) {
+  } else if (wasPressed(...CONTROLS.skill) && player.skillTime <= 0) {
     if (hasAbility("chain_grapple") && tryActivateGrapple()) {
       player.skillTime = 0.3;
       player.invulnerable = 0.18;
@@ -1688,14 +1702,13 @@ function updatePlayer(dt) {
       pushMessage("Not enough Gloom for a skill attack.");
       player.contactMessageCooldown = 1.4;
     }
+  } else if (wasPressed(...CONTROLS.heavyAttack) && player.attackTime <= 0 && player.skillTime <= 0) {
+    startPlayerAttack("heavy");
+  } else if (wasPressed(...CONTROLS.lightAttack) && player.attackTime <= 0 && player.skillTime <= 0) {
+    startPlayerAttack("light");
   }
 
-  if (wasPressed("KeyI")) {
-    player.parryTime = 0.24 + (oath.parryBonus || 0) + (relicMods.parryBonus || 0);
-    player.action = "parry";
-  }
-
-  if (wasPressed("KeyE", "Enter")) {
+  if (wasPressed(...CONTROLS.interact)) {
     tryInteract();
   }
 
@@ -1803,6 +1816,312 @@ function tryActivateGrapple() {
   return true;
 }
 
+function getPlayerHitCenter() {
+  return {
+    x: game.player.x,
+    y: game.player.y - game.player.h * 0.18
+  };
+}
+
+function getEnemyWindupProgress(enemy) {
+  if (!enemy.attackType || enemy.attackWindupTotal <= 0) {
+    return 0;
+  }
+  return clamp01(1 - enemy.attackTimer / enemy.attackWindupTotal);
+}
+
+function queueEnemyAttack(enemy, attackType, data) {
+  enemy.attackType = attackType;
+  enemy.attackData = data;
+  enemy.attackTimer = data.windup;
+  enemy.attackWindupTotal = data.windup;
+  addEffect({
+    type: "attack_tell",
+    x: data.tellX,
+    y: data.tellY,
+    facing: enemy.facing,
+    color: data.tellColor,
+    life: data.windup,
+    tellShape: data.tellShape,
+    parryable: data.parryable !== false
+  });
+}
+
+function finishEnemyAttack(enemy) {
+  enemy.cooldown = enemy.attackData?.recover || (enemy.isBoss ? 0.95 : 0.8);
+  enemy.attackTimer = 0;
+  enemy.attackWindupTotal = 0;
+  enemy.attackType = null;
+  enemy.attackData = null;
+}
+
+function resolveEnemyParry(enemy, pointX, pointY, amount = 18) {
+  enemy.stun = enemy.isBoss ? 0.45 : 0.72;
+  enemy.cooldown = enemy.isBoss ? 1.2 : 1.05;
+  addEffect({ type: "parry_flash", x: pointX, y: pointY, life: 0.18 });
+  spawnDirectionalImpact(pointX, pointY, 0, COLORS.cyan, COLORS.ivory, enemy.isBoss ? 1 : 0.82);
+  addHitstop(enemy.isBoss ? 0.06 : 0.05);
+  addCameraTrauma(enemy.isBoss ? 0.34 : 0.26);
+  flashScreen("rgba(122,215,224,0.24)", enemy.isBoss ? 0.18 : 0.14);
+  gainGloom(amount);
+}
+
+function resolveEnemyStrike(enemy, strike) {
+  const playerCenter = getPlayerHitCenter();
+  const playerRadius = Math.max(game.player.w, game.player.h) * 0.28;
+  const distanceToStrike = pointToSegmentDistance(
+    playerCenter.x,
+    playerCenter.y,
+    strike.ax,
+    strike.ay,
+    strike.bx,
+    strike.by
+  );
+  if (distanceToStrike > playerRadius + strike.radius) {
+    return false;
+  }
+
+  const impactPoint = closestPointOnSegment(playerCenter.x, playerCenter.y, strike.ax, strike.ay, strike.bx, strike.by);
+  if (strike.parryable !== false && tryParry({ x: impactPoint.x, y: impactPoint.y })) {
+    resolveEnemyParry(enemy, impactPoint.x, impactPoint.y, strike.parryGloom || 18);
+    return true;
+  }
+
+  damagePlayer(strike.damage, { x: impactPoint.x, y: impactPoint.y });
+  return true;
+}
+
+function chooseEnemyAttack(enemy, dx, dy) {
+  const range = Math.abs(dx);
+  const height = Math.abs(dy);
+
+  if (enemy.isBoss) {
+    if (enemy.id === "sir_aurex") {
+      if (enemy.specialCooldown <= 0) {
+        if (enemy.phaseIndex === 0) {
+          queueEnemyAttack(enemy, "aurex_charge", {
+            windup: 0.72,
+            recover: 1.15,
+            tellShape: "charge",
+            tellColor: COLORS.cyan,
+            tellX: enemy.x + enemy.facing * 124,
+            tellY: enemy.y - 56,
+            parryable: true
+          });
+        } else {
+          queueEnemyAttack(enemy, "aurex_halo", {
+            windup: 0.9,
+            recover: 1.3,
+            tellShape: "burst",
+            tellColor: COLORS.crimson,
+            tellX: enemy.x,
+            tellY: enemy.y - 92,
+            parryable: false
+          });
+        }
+        return true;
+      }
+      if (range <= 162 && height < 110) {
+        queueEnemyAttack(enemy, "aurex_cleave", {
+          windup: 0.5,
+          recover: 0.95,
+          tellShape: "shield",
+          tellColor: COLORS.cyan,
+          tellX: enemy.x + enemy.facing * 106,
+          tellY: enemy.y - 42,
+          parryable: true
+        });
+        return true;
+      }
+      return false;
+    }
+
+    if (enemy.specialCooldown <= 0) {
+      if (enemy.phaseIndex === 0) {
+        queueEnemyAttack(enemy, "seraph_dash", {
+          windup: 0.48,
+          recover: 1,
+          tellShape: "charge",
+          tellColor: COLORS.cyan,
+          tellX: enemy.x + enemy.facing * 132,
+          tellY: enemy.y - 64,
+          parryable: true
+        });
+      } else if (enemy.phaseIndex === 1) {
+        queueEnemyAttack(enemy, "seraph_cross", {
+          windup: 0.62,
+          recover: 1.2,
+          tellShape: "cross",
+          tellColor: COLORS.cyan,
+          tellX: enemy.x + enemy.facing * 84,
+          tellY: enemy.y - 74,
+          parryable: true
+        });
+      } else {
+        queueEnemyAttack(enemy, "seraph_halo", {
+          windup: 0.82,
+          recover: 1.25,
+          tellShape: "burst",
+          tellColor: COLORS.crimson,
+          tellX: enemy.x,
+          tellY: enemy.y - 86,
+          parryable: false
+        });
+      }
+      return true;
+    }
+
+    if (range <= 176 && height < 110) {
+      queueEnemyAttack(enemy, "seraph_cleave", {
+        windup: 0.42,
+        recover: 0.86,
+        tellShape: "thrust",
+        tellColor: COLORS.cyan,
+        tellX: enemy.x + enemy.facing * 140,
+        tellY: enemy.y - 50,
+        parryable: true
+      });
+      return true;
+    }
+    return false;
+  }
+
+  switch (enemy.id) {
+    case "shield_paladin":
+      if (range <= 138 && height < 96) {
+        queueEnemyAttack(enemy, "shield_bash", {
+          windup: 0.58,
+          recover: 1.05,
+          tellShape: "shield",
+          tellColor: COLORS.cyan,
+          tellX: enemy.x + enemy.facing * 92,
+          tellY: enemy.y - 40,
+          parryable: true
+        });
+        return true;
+      }
+      break;
+    case "lancer":
+      if (range <= 228 && range >= 70 && height < 92) {
+        queueEnemyAttack(enemy, "sunlance_thrust", {
+          windup: 0.46,
+          recover: 0.96,
+          tellShape: "thrust",
+          tellColor: COLORS.cyan,
+          tellX: enemy.x + enemy.facing * 142,
+          tellY: enemy.y - 42,
+          parryable: true
+        });
+        return true;
+      }
+      break;
+    case "choir_adept":
+      if (range <= 480 && range >= 140 && height < 220) {
+        const useArc = range > 280 || game.player.y + 20 < enemy.y;
+        queueEnemyAttack(enemy, useArc ? "choir_arc" : "choir_direct", {
+          windup: useArc ? 0.78 : 0.66,
+          recover: useArc ? 1.28 : 1.12,
+          tellShape: useArc ? "arc" : "glyph",
+          tellColor: COLORS.cyan,
+          tellX: enemy.x + enemy.facing * 46,
+          tellY: enemy.y - 74,
+          parryable: true
+        });
+        return true;
+      }
+      break;
+    case "inquisitor":
+      if (range <= 260 && range >= 86 && height < 108) {
+        queueEnemyAttack(enemy, "inquisitor_lash", {
+          windup: 0.54,
+          recover: 1.04,
+          tellShape: "lash",
+          tellColor: COLORS.cyan,
+          tellX: enemy.x + enemy.facing * 112,
+          tellY: enemy.y - 48,
+          parryable: true
+        });
+        return true;
+      }
+      break;
+    case "blessed_hound":
+      if (range <= 230 && range >= 50 && height < 92 && enemy.onGround) {
+        queueEnemyAttack(enemy, "hound_pounce", {
+          windup: 0.38,
+          recover: 1.18,
+          tellShape: "pounce",
+          tellColor: COLORS.cyan,
+          tellX: enemy.x + enemy.facing * 74,
+          tellY: enemy.y - 22,
+          parryable: true,
+          targetX: game.player.x
+        });
+        return true;
+      }
+      break;
+    default:
+      break;
+  }
+
+  return false;
+}
+
+function updateEnemyWindupMotion(enemy, dt) {
+  const progress = getEnemyWindupProgress(enemy);
+  switch (enemy.attackType) {
+    case "shield_bash":
+    case "aurex_cleave":
+      enemy.vx = -enemy.facing * 70 * (1 - progress);
+      break;
+    case "sunlance_thrust":
+    case "seraph_cleave":
+      enemy.vx = -enemy.facing * 110 * (1 - progress);
+      break;
+    case "inquisitor_lash":
+      enemy.vx = -enemy.facing * 52 * (1 - progress);
+      break;
+    case "hound_pounce":
+      enemy.vx = -enemy.facing * 150 * (1 - progress);
+      break;
+    case "aurex_charge":
+    case "seraph_dash":
+      enemy.vx = -enemy.facing * 120 * (1 - progress);
+      break;
+    default:
+      enemy.vx = 0;
+      break;
+  }
+}
+
+function updateEnemyLeap(enemy, dt) {
+  if (enemy.leapTime <= 0) {
+    return false;
+  }
+
+  enemy.leapTime = Math.max(0, enemy.leapTime - dt);
+  enemy.vy += GRAVITY * dt;
+  moveEntity(enemy, dt);
+  enemy.x = clamp(enemy.x, 40, WIDTH - 40);
+
+  if ((enemy.onGround || enemy.leapTime <= 0) && enemy.leapImpactPending) {
+    addEffect({ type: "rush_arc", x: enemy.x, y: enemy.y - 24, facing: enemy.facing, life: 0.22 });
+    resolveEnemyStrike(enemy, {
+      ax: enemy.x - enemy.facing * 12,
+      ay: enemy.y - 18,
+      bx: enemy.x + enemy.facing * 92,
+      by: enemy.y - 12,
+      radius: 60,
+      damage: enemy.damage + 3,
+      parryable: true,
+      parryGloom: 16
+    });
+    enemy.leapImpactPending = false;
+    enemy.cooldown = 1.18;
+  }
+
+  return true;
+}
+
 function updateEnemies(dt) {
   const player = game.player;
 
@@ -1820,6 +2139,11 @@ function updateEnemies(dt) {
       continue;
     }
 
+    if (enemy.leapTime > 0) {
+      updateEnemyLeap(enemy, dt);
+      continue;
+    }
+
     if (enemy.stun > 0) {
       enemy.vx = lerp(enemy.vx, 0, 0.22);
       enemy.vy += GRAVITY * dt;
@@ -1832,29 +2156,21 @@ function updateEnemies(dt) {
     enemy.facing = dx >= 0 ? 1 : -1;
 
     if (enemy.attackTimer > 0) {
-      enemy.vx = 0;
+      updateEnemyWindupMotion(enemy, dt);
       if (enemy.attackTimer <= 0.05) {
         executeEnemyAttack(enemy);
-        enemy.attackTimer = 0;
-        enemy.cooldown = enemy.isBoss ? 0.9 : 0.75;
       }
-    } else if (enemy.isBoss && enemy.specialCooldown <= 0) {
-      executeBossSpecial(enemy);
-    } else if (enemy.ranged && Math.abs(dx) > 160 && Math.abs(dx) < 520 && enemy.cooldown <= 0) {
-      enemy.attackTimer = ENEMIES[enemy.id].attackWindup;
-      addEffect({ type: "attack_tell", x: enemy.x, y: enemy.y - enemy.h * 0.7, color: COLORS.cyan, life: enemy.attackTimer });
-    } else if (Math.abs(dx) <= enemy.reach && Math.abs(dy) < 110 && enemy.cooldown <= 0) {
-      enemy.attackTimer = enemy.attackWindup;
-      addEffect({
-        type: "attack_tell",
-        x: enemy.x + enemy.facing * 30,
-        y: enemy.y - enemy.h * 0.62,
-        color: enemy.isBoss ? COLORS.gold : COLORS.ivory,
-        life: enemy.attackTimer
-      });
+    } else if (enemy.cooldown <= 0 && chooseEnemyAttack(enemy, dx, dy)) {
+      enemy.vx = 0;
     } else {
       const speed = enemy.isBoss ? enemy.speed : ENEMIES[enemy.id].speed;
-      enemy.vx = Math.sign(dx) * speed;
+      if (enemy.id === "choir_adept" && Math.abs(dx) < 180) {
+        enemy.vx = -Math.sign(dx || enemy.facing) * speed * 0.82;
+      } else if (enemy.id === "inquisitor" && Math.abs(dx) < 100) {
+        enemy.vx = -Math.sign(dx || enemy.facing) * speed * 0.55;
+      } else {
+        enemy.vx = Math.sign(dx) * speed;
+      }
     }
 
     if (!enemy.onGround) {
@@ -1877,41 +2193,201 @@ function updateEnemies(dt) {
 }
 
 function executeEnemyAttack(enemy) {
-  if (enemy.ranged && !enemy.isBoss) {
-    createProjectile(
-      enemy.x + enemy.facing * 28,
-      enemy.y - 60,
-      enemy.facing * 420,
-      -30,
-      16,
-      COLORS.cyan,
-      enemy.damage,
-      "enemy",
-      1.2
-    );
-    addEffect({ type: "choir_cast", x: enemy.x, y: enemy.y - 70, life: 0.28 });
-    return;
+  switch (enemy.attackType) {
+    case "shield_bash":
+      resolveEnemyStrike(enemy, {
+        ax: enemy.x + enemy.facing * 24,
+        ay: enemy.y - 40,
+        bx: enemy.x + enemy.facing * 120,
+        by: enemy.y - 36,
+        radius: 44,
+        damage: enemy.damage + 2,
+        parryable: true
+      });
+      addEffect({ type: "rush_arc", x: enemy.x + enemy.facing * 64, y: enemy.y - 38, facing: enemy.facing, life: 0.18 });
+      break;
+    case "sunlance_thrust":
+      resolveEnemyStrike(enemy, {
+        ax: enemy.x + enemy.facing * 28,
+        ay: enemy.y - 42,
+        bx: enemy.x + enemy.facing * 206,
+        by: enemy.y - 42,
+        radius: 24,
+        damage: enemy.damage + 3,
+        parryable: true
+      });
+      addEffect({ type: "seraph_slash", x: enemy.x + enemy.facing * 124, y: enemy.y - 42, facing: enemy.facing, life: 0.16 });
+      break;
+    case "choir_direct":
+      createProjectile(
+        enemy.x + enemy.facing * 36,
+        enemy.y - 64,
+        enemy.facing * 460,
+        0,
+        16,
+        COLORS.cyan,
+        enemy.damage,
+        "enemy",
+        0.82,
+        { maxDistance: 320, shape: "direct" }
+      );
+      addEffect({ type: "choir_cast", x: enemy.x + enemy.facing * 36, y: enemy.y - 68, life: 0.28 });
+      break;
+    case "choir_arc":
+      createProjectile(
+        enemy.x + enemy.facing * 30,
+        enemy.y - 70,
+        enemy.facing * 260,
+        -420,
+        15,
+        COLORS.ivory,
+        enemy.damage + 2,
+        "enemy",
+        1.22,
+        { gravity: 820, maxDistance: 430, shape: "arc" }
+      );
+      addEffect({ type: "choir_cast", x: enemy.x + enemy.facing * 30, y: enemy.y - 72, life: 0.32 });
+      break;
+    case "inquisitor_lash":
+      createProjectile(
+        enemy.x + enemy.facing * 40,
+        enemy.y - 50,
+        enemy.facing * 580,
+        0,
+        18,
+        COLORS.crimson,
+        enemy.damage + 2,
+        "enemy",
+        0.5,
+        { maxDistance: 250, shape: "direct" }
+      );
+      addEffect({ type: "cross_cut", x: enemy.x + enemy.facing * 72, y: enemy.y - 52, facing: enemy.facing, life: 0.18 });
+      break;
+    case "hound_pounce":
+      enemy.vx = enemy.facing * 360;
+      enemy.vy = -560;
+      enemy.leapTime = 0.6;
+      enemy.leapImpactPending = true;
+      finishEnemyAttack(enemy);
+      return;
+    case "aurex_cleave":
+      resolveEnemyStrike(enemy, {
+        ax: enemy.x + enemy.facing * 30,
+        ay: enemy.y - 48,
+        bx: enemy.x + enemy.facing * 148,
+        by: enemy.y - 40,
+        radius: 52,
+        damage: enemy.damage + 4,
+        parryable: true,
+        parryGloom: 20
+      });
+      addEffect({ type: "rush_arc", x: enemy.x + enemy.facing * 76, y: enemy.y - 46, facing: enemy.facing, life: 0.2 });
+      break;
+    case "aurex_charge":
+      enemy.vx = enemy.facing * 680;
+      addEffect({ type: "rush_arc", x: enemy.x + enemy.facing * 88, y: enemy.y - 52, facing: enemy.facing, life: 0.24 });
+      resolveEnemyStrike(enemy, {
+        ax: enemy.x + enemy.facing * 36,
+        ay: enemy.y - 52,
+        bx: enemy.x + enemy.facing * 186,
+        by: enemy.y - 44,
+        radius: 58,
+        damage: enemy.damage + 6,
+        parryable: true,
+        parryGloom: 22
+      });
+      enemy.specialCooldown = enemy.phases[enemy.phaseIndex].specialCooldown;
+      break;
+    case "aurex_halo":
+      addEffect({ type: "halo_burst", x: enemy.x, y: enemy.y - 90, life: 0.5 });
+      addCameraTrauma(0.12);
+      resolveEnemyStrike(enemy, {
+        ax: enemy.x - 180,
+        ay: enemy.y - 60,
+        bx: enemy.x + 180,
+        by: enemy.y - 60,
+        radius: 96,
+        damage: enemy.damage + 9,
+        parryable: false
+      });
+      enemy.specialCooldown = enemy.phases[enemy.phaseIndex].specialCooldown;
+      break;
+    case "seraph_cleave":
+      resolveEnemyStrike(enemy, {
+        ax: enemy.x + enemy.facing * 34,
+        ay: enemy.y - 50,
+        bx: enemy.x + enemy.facing * 180,
+        by: enemy.y - 40,
+        radius: 34,
+        damage: enemy.damage + 3,
+        parryable: true,
+        parryGloom: 22
+      });
+      addEffect({ type: "seraph_slash", x: enemy.x + enemy.facing * 108, y: enemy.y - 54, facing: enemy.facing, life: 0.2 });
+      break;
+    case "seraph_dash":
+      enemy.vx = enemy.facing * 820;
+      addEffect({ type: "seraph_slash", x: enemy.x + enemy.facing * 92, y: enemy.y - 58, facing: enemy.facing, life: 0.22 });
+      resolveEnemyStrike(enemy, {
+        ax: enemy.x + enemy.facing * 30,
+        ay: enemy.y - 58,
+        bx: enemy.x + enemy.facing * 190,
+        by: enemy.y - 42,
+        radius: 42,
+        damage: enemy.damage + 5,
+        parryable: true,
+        parryGloom: 24
+      });
+      enemy.specialCooldown = enemy.phases[enemy.phaseIndex].specialCooldown;
+      break;
+    case "seraph_cross":
+      createProjectile(
+        enemy.x + enemy.facing * 36,
+        enemy.y - 56,
+        enemy.facing * 520,
+        0,
+        22,
+        COLORS.cyan,
+        enemy.damage + 5,
+        "enemy",
+        0.92,
+        { maxDistance: 360, shape: "direct" }
+      );
+      createProjectile(
+        enemy.x + enemy.facing * 30,
+        enemy.y - 18,
+        enemy.facing * 250,
+        -340,
+        16,
+        COLORS.ivory,
+        enemy.damage + 4,
+        "enemy",
+        1.08,
+        { gravity: 780, maxDistance: 390, shape: "arc" }
+      );
+      addEffect({ type: "cross_cut", x: enemy.x + enemy.facing * 76, y: enemy.y - 56, facing: enemy.facing, life: 0.26 });
+      enemy.specialCooldown = enemy.phases[enemy.phaseIndex].specialCooldown;
+      break;
+    case "seraph_halo":
+      addEffect({ type: "seraph_halo", x: enemy.x, y: enemy.y - 80, life: 0.55 });
+      flashScreen("rgba(122,215,224,0.18)", 0.08);
+      addCameraTrauma(0.14);
+      resolveEnemyStrike(enemy, {
+        ax: enemy.x - 200,
+        ay: enemy.y - 70,
+        bx: enemy.x + 200,
+        by: enemy.y - 70,
+        radius: 110,
+        damage: enemy.damage + 10,
+        parryable: false
+      });
+      enemy.specialCooldown = enemy.phases[enemy.phaseIndex].specialCooldown;
+      break;
+    default:
+      break;
   }
 
-  const player = game.player;
-  if (distance(enemy, player) > enemy.reach + 30) {
-    return;
-  }
-
-  if (tryParry(enemy)) {
-    enemy.stun = enemy.isBoss ? 0.45 : 0.65;
-    enemy.cooldown = 1.1;
-    addEffect({ type: "parry_flash", x: player.x, y: player.y - 55, life: 0.18 });
-    spawnDirectionalImpact(player.x + player.facing * 32, player.y - 56, 0, COLORS.cyan, COLORS.ivory, 0.9);
-    addHitstop(0.05);
-    addCameraTrauma(0.28);
-    flashScreen("rgba(122,215,224,0.24)", 0.15);
-    pushMessage("Parry shattered the holy guard.");
-    gainGloom(18);
-    return;
-  }
-
-  damagePlayer(enemy.damage, enemy);
+  finishEnemyAttack(enemy);
 }
 
 function updateBossPhase(boss) {
@@ -1930,66 +2406,6 @@ function updateBossPhase(boss) {
       pushMessage(DIALOGUE.aurex_shift);
     } else if (boss.id === "seraph_vale") {
       pushMessage(index === 1 ? DIALOGUE.seraph_shift_1 : DIALOGUE.seraph_shift_2);
-    }
-  }
-}
-
-function executeBossSpecial(boss) {
-  boss.specialCooldown = boss.phases[boss.phaseIndex].specialCooldown;
-
-  if (boss.id === "sir_aurex") {
-    if (boss.phaseIndex === 0) {
-      boss.vx = boss.facing * 650;
-      addEffect({ type: "rush_arc", x: boss.x, y: boss.y - 50, facing: boss.facing, life: 0.22 });
-      if (distance(boss, game.player) < 170) {
-        damagePlayer(boss.damage + 4, boss);
-      }
-    } else {
-      addEffect({ type: "halo_burst", x: boss.x, y: boss.y - 90, life: 0.5 });
-      addCameraTrauma(0.12);
-      if (distance(boss, game.player) < 240) {
-        damagePlayer(boss.damage + 8, boss);
-      }
-    }
-    return;
-  }
-
-  if (boss.phaseIndex === 0) {
-    boss.vx = boss.facing * 780;
-    if (distance(boss, game.player) < 180) {
-      damagePlayer(boss.damage + 5, boss);
-    }
-    addEffect({ type: "seraph_slash", x: boss.x, y: boss.y - 58, facing: boss.facing, life: 0.22 });
-  } else if (boss.phaseIndex === 1) {
-    createProjectile(
-      boss.x + boss.facing * 34,
-      boss.y - 54,
-      boss.facing * 520,
-      0,
-      22,
-      COLORS.cyan,
-      boss.damage + 5,
-      "enemy",
-      1.1
-    );
-    createProjectile(
-      boss.x + boss.facing * 34,
-      boss.y - 24,
-      boss.facing * 520,
-      40,
-      18,
-      COLORS.ivory,
-      boss.damage + 3,
-      "enemy",
-      1.1
-    );
-    addEffect({ type: "cross_cut", x: boss.x, y: boss.y - 56, facing: boss.facing, life: 0.26 });
-  } else {
-    addEffect({ type: "seraph_halo", x: boss.x, y: boss.y - 80, life: 0.55 });
-    flashScreen("rgba(122,215,224,0.18)", 0.08);
-    addCameraTrauma(0.14);
-    if (distance(boss, game.player) < 260) {
-      damagePlayer(boss.damage + 10, boss);
     }
   }
 }
@@ -2015,9 +2431,13 @@ function updateProjectiles(dt) {
       });
       projectile.trailTimer = 0.03;
     }
+    projectile.vy += projectile.gravity * dt;
     projectile.x += projectile.vx * dt;
     projectile.y += projectile.vy * dt;
     if (projectile.x < -40 || projectile.x > WIDTH + 40 || projectile.y < -40 || projectile.y > HEIGHT + 40) {
+      continue;
+    }
+    if (Math.hypot(projectile.x - projectile.startX, projectile.y - projectile.startY) > projectile.maxDistance) {
       continue;
     }
 
@@ -2496,6 +2916,7 @@ function drawPlayerShape(player) {
       ? 54
       : 28;
   const auraAlpha = 0.16 + (game.run.gloom / 100) * 0.15 + (attack ? 0.08 : 0);
+  const parryAlpha = clamp01(player.parryTime * 3.6);
   ctx.fillStyle = `rgba(122,215,224,${auraAlpha * 0.8})`;
   ctx.beginPath();
   ctx.ellipse(-10, -92, 48, 78, -0.16, 0, Math.PI * 2);
@@ -2534,6 +2955,16 @@ function drawPlayerShape(player) {
   ctx.beginPath();
   ctx.arc(4, -102, 22, -2.6, -0.4);
   ctx.stroke();
+  if (parryAlpha > 0) {
+    ctx.strokeStyle = `rgba(122,215,224,${0.5 + parryAlpha * 0.4})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-14, -92);
+    ctx.lineTo(28, -92);
+    ctx.moveTo(7, -114);
+    ctx.lineTo(7, -70);
+    ctx.stroke();
+  }
   ctx.restore();
 
   drawWeapon(game.run.currentWeapon, player, player.attackFlash);
@@ -2598,19 +3029,49 @@ function drawWeapon(weaponId, player, flash) {
   ctx.restore();
 }
 
+function getEnemyWindupPose(enemy) {
+  const progress = getEnemyWindupProgress(enemy);
+  switch (enemy.attackType) {
+    case "shield_bash":
+    case "aurex_cleave":
+      return { bodyLean: -0.14 + progress * 0.18, shiftX: -18 * (1 - progress), shiftY: 0, reach: 16 * progress, crouch: 0 };
+    case "sunlance_thrust":
+    case "seraph_cleave":
+      return { bodyLean: -0.18, shiftX: -28 * (1 - progress), shiftY: 0, reach: 34 * progress, crouch: 0 };
+    case "choir_direct":
+    case "choir_arc":
+      return { bodyLean: -0.08, shiftX: 0, shiftY: -8 * progress, reach: 12 * progress, crouch: 0 };
+    case "inquisitor_lash":
+      return { bodyLean: -0.2, shiftX: -18 * (1 - progress), shiftY: 0, reach: 24 * progress, crouch: 0 };
+    case "hound_pounce":
+      return { bodyLean: 0.12, shiftX: -30 * (1 - progress), shiftY: 18 * (1 - progress), reach: 0, crouch: 20 * (1 - progress) };
+    case "aurex_charge":
+    case "seraph_dash":
+      return { bodyLean: -0.12, shiftX: -24 * (1 - progress), shiftY: 0, reach: 22 * progress, crouch: 0 };
+    case "aurex_halo":
+    case "seraph_halo":
+      return { bodyLean: 0, shiftX: 0, shiftY: -10 * progress, reach: 0, crouch: 0 };
+    case "seraph_cross":
+      return { bodyLean: -0.08, shiftX: -10 * (1 - progress), shiftY: -4 * progress, reach: 26 * progress, crouch: 0 };
+    default:
+      return { bodyLean: 0, shiftX: 0, shiftY: 0, reach: 0, crouch: 0 };
+  }
+}
+
 function drawEnemyShape(enemy) {
+  const pose = getEnemyWindupPose(enemy);
   if (enemy.drawKind === "hound") {
-    drawHound(enemy);
+    drawHound(enemy, pose);
     return;
   }
 
   if (enemy.drawKind === "aurex") {
-    drawAurex(enemy);
+    drawAurex(enemy, pose);
     return;
   }
 
   if (enemy.drawKind === "seraph") {
-    drawSeraph(enemy);
+    drawSeraph(enemy, pose);
     return;
   }
 
@@ -2621,6 +3082,9 @@ function drawEnemyShape(enemy) {
     inquisitor: { body: "#d7d2c1", trim: COLORS.crimson, aura: "#8ec0da" }
   }[enemy.drawKind];
 
+  ctx.save();
+  ctx.translate(pose.shiftX, pose.shiftY);
+  ctx.rotate(pose.bodyLean);
   ctx.fillStyle = `rgba(122,215,224,${enemy.drawKind === "choir_adept" ? 0.18 : 0.08})`;
   ctx.beginPath();
   ctx.ellipse(-6, -92, 28, 42, 0, 0, Math.PI * 2);
@@ -2640,36 +3104,40 @@ function drawEnemyShape(enemy) {
   ctx.fillRect(-10, -24, 32, 8);
 
   if (enemy.drawKind === "shield_paladin") {
-    ctx.fillRect(34, -28, 34, 48);
+    ctx.fillRect(30 + pose.reach * 0.2, -28, 38, 50);
     ctx.fillStyle = palette.body;
-    ctx.fillRect(16, -40, 112, 6);
+    ctx.fillRect(18, -40 - pose.reach * 0.05, 112 + pose.reach, 6);
   } else if (enemy.drawKind === "lancer") {
     ctx.fillStyle = palette.body;
-    ctx.fillRect(14, -42, 136, 5);
+    ctx.fillRect(14, -42, 136 + pose.reach, 5);
   } else if (enemy.drawKind === "choir_adept") {
     ctx.fillStyle = palette.trim;
     ctx.beginPath();
-    ctx.arc(44, -26, 12, 0, Math.PI * 2);
+    ctx.arc(44 + pose.reach * 0.3, -26 - pose.reach * 0.5, 12 + pose.reach * 0.06, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = palette.body;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(22, -48);
-    ctx.lineTo(46, -30);
+    ctx.lineTo(46 + pose.reach * 0.2, -30 - pose.reach * 0.45);
     ctx.stroke();
   } else if (enemy.drawKind === "inquisitor") {
     ctx.fillStyle = palette.trim;
-    ctx.fillRect(18, -44, 82, 7);
+    ctx.fillRect(18, -44, 82 + pose.reach, 7);
     ctx.beginPath();
-    ctx.moveTo(96, -50);
-    ctx.lineTo(126, -30);
-    ctx.lineTo(100, -18);
+    ctx.moveTo(96 + pose.reach * 0.7, -50);
+    ctx.lineTo(126 + pose.reach, -30);
+    ctx.lineTo(100 + pose.reach * 0.72, -18);
     ctx.closePath();
     ctx.fill();
   }
+  ctx.restore();
 }
 
-function drawHound() {
+function drawHound(enemy, pose) {
+  ctx.save();
+  ctx.translate(pose.shiftX, pose.shiftY + pose.crouch);
+  ctx.rotate(pose.bodyLean);
   ctx.fillStyle = "rgba(122,215,224,0.08)";
   ctx.beginPath();
   ctx.ellipse(-12, -44, 46, 26, 0, 0, Math.PI * 2);
@@ -2690,9 +3158,13 @@ function drawHound() {
   ctx.lineTo(12, -40);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
 }
 
-function drawAurex() {
+function drawAurex(enemy, pose) {
+  ctx.save();
+  ctx.translate(pose.shiftX, pose.shiftY);
+  ctx.rotate(pose.bodyLean);
   ctx.fillStyle = "rgba(227,219,199,0.12)";
   ctx.beginPath();
   ctx.ellipse(-8, -118, 40, 58, 0, 0, Math.PI * 2);
@@ -2715,11 +3187,15 @@ function drawAurex() {
 
   ctx.fillStyle = COLORS.gold;
   ctx.fillRect(-16, -28, 40, 10);
-  ctx.fillRect(34, -32, 48, 62);
-  ctx.fillRect(20, -50, 126, 7);
+  ctx.fillRect(34 + pose.reach * 0.16, -32, 48, 62);
+  ctx.fillRect(20, -50, 126 + pose.reach, 7);
+  ctx.restore();
 }
 
-function drawSeraph() {
+function drawSeraph(enemy, pose) {
+  ctx.save();
+  ctx.translate(pose.shiftX, pose.shiftY);
+  ctx.rotate(pose.bodyLean);
   ctx.fillStyle = "rgba(122,215,224,0.18)";
   ctx.beginPath();
   ctx.ellipse(-6, -118, 38, 68, -0.1, 0, Math.PI * 2);
@@ -2765,13 +3241,14 @@ function drawSeraph() {
   ctx.fill();
 
   ctx.fillStyle = COLORS.ivory;
-  ctx.fillRect(18, -50, 156, 6);
+  ctx.fillRect(18, -50, 156 + pose.reach, 6);
   ctx.beginPath();
-  ctx.moveTo(154, -58);
-  ctx.lineTo(204, -47);
-  ctx.lineTo(154, -36);
+  ctx.moveTo(154 + pose.reach * 0.7, -58);
+  ctx.lineTo(204 + pose.reach, -47);
+  ctx.lineTo(154 + pose.reach * 0.7, -36);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
 }
 
 function drawProjectiles() {
@@ -2964,18 +3441,111 @@ function drawEffects() {
     } else if (effect.type === "choir_cast" || effect.type === "windup_glow" || effect.type === "attack_tell") {
       ctx.globalCompositeOperation = "lighter";
       const color = effect.color || COLORS.cyan;
-      ctx.fillStyle = color;
-      ctx.globalAlpha = effect.type === "attack_tell" ? alpha * 0.35 : alpha * 0.26;
-      ctx.beginPath();
-      ctx.arc(0, 0, effect.type === "windup_glow" ? 30 : 22 + (1 - alpha) * 18, 0, Math.PI * 2);
-      ctx.fill();
       if (effect.type === "attack_tell") {
+        ctx.globalAlpha = alpha * 0.85;
         ctx.strokeStyle = color;
-        ctx.lineWidth = 2;
-        ctx.globalAlpha = alpha * 0.8;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 3;
+        switch (effect.tellShape) {
+          case "shield":
+            ctx.strokeRect(-18, -24, 36, 48);
+            ctx.beginPath();
+            ctx.moveTo(12, -18);
+            ctx.lineTo(86, -18);
+            ctx.lineTo(86, 18);
+            ctx.lineTo(12, 18);
+            ctx.stroke();
+            break;
+          case "thrust":
+            ctx.beginPath();
+            ctx.moveTo(0, -10);
+            ctx.lineTo(180, -4);
+            ctx.lineTo(180, 4);
+            ctx.lineTo(0, 10);
+            ctx.closePath();
+            ctx.stroke();
+            break;
+          case "glyph":
+            ctx.beginPath();
+            ctx.arc(0, 0, 20, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, -32);
+            ctx.lineTo(0, 32);
+            ctx.moveTo(26, -14);
+            ctx.lineTo(78, -14);
+            ctx.moveTo(26, 14);
+            ctx.lineTo(92, 14);
+            ctx.stroke();
+            break;
+          case "arc":
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(74, -92, 148, 18);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(148, 18, 14, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
+          case "lash":
+            ctx.beginPath();
+            ctx.moveTo(0, -8);
+            ctx.lineTo(126, -8);
+            ctx.lineTo(150, 12);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(152, 14, 10, -1.6, 2.6);
+            ctx.stroke();
+            break;
+          case "pounce":
+            ctx.beginPath();
+            ctx.arc(88, 22, 36 + (1 - alpha) * 12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(42, -36, 84, 4);
+            ctx.stroke();
+            break;
+          case "charge":
+            ctx.beginPath();
+            ctx.moveTo(0, -24);
+            ctx.lineTo(152, 0);
+            ctx.lineTo(0, 24);
+            ctx.closePath();
+            ctx.stroke();
+            break;
+          case "burst":
+            ctx.beginPath();
+            ctx.arc(0, 0, 26 + (1 - alpha) * 20, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, 64 + (1 - alpha) * 24, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
+          case "cross":
+            ctx.beginPath();
+            ctx.moveTo(0, -42);
+            ctx.lineTo(92, 34);
+            ctx.moveTo(0, 42);
+            ctx.lineTo(92, -34);
+            ctx.stroke();
+            break;
+          default:
+            ctx.beginPath();
+            ctx.arc(0, 0, 22 + (1 - alpha) * 18, 0, Math.PI * 2);
+            ctx.stroke();
+            break;
+        }
+        if (effect.parryable === false) {
+          ctx.globalAlpha = alpha * 0.2;
+          ctx.fillRect(-18, -18, 36, 36);
+        }
+      } else {
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha * 0.26;
         ctx.beginPath();
-        ctx.arc(0, 0, 18 + (1 - alpha) * 10, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.arc(0, 0, effect.type === "windup_glow" ? 30 : 22 + (1 - alpha) * 18, 0, Math.PI * 2);
+        ctx.fill();
       }
     } else if (effect.type === "cross_cut" || effect.type === "rush_arc" || effect.type === "seraph_slash") {
       ctx.globalCompositeOperation = "lighter";
