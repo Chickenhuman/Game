@@ -1,0 +1,165 @@
+:root {
+  --bg: #110f14;
+  --panel: rgba(20, 18, 28, 0.88);
+  --panel-border: rgba(122, 215, 224, 0.16);
+  --ink: #f2ead7;
+  --muted: #c2b7a0;
+  --gold: #a88c57;
+  --crimson: #7f1d2b;
+  --cyan: #7ad7e0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top, rgba(122, 215, 224, 0.12), transparent 35%),
+    linear-gradient(180deg, #19151f 0%, #0d0b10 100%);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.shell {
+  width: min(1880px, 100%);
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--gold);
+  font-size: 12px;
+}
+
+h1, h2 {
+  margin: 0;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: clamp(28px, 4vw, 42px);
+}
+
+h2 {
+  color: var(--gold);
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.status {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  text-align: right;
+}
+
+#roomName {
+  font-size: 24px;
+}
+
+#messageText {
+  color: var(--muted);
+  max-width: 520px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.stage,
+.card {
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
+}
+
+.stage {
+  padding: 16px;
+}
+
+canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 16 / 9;
+  border: 1px solid rgba(168, 140, 87, 0.35);
+  background: linear-gradient(180deg, #201b26 0%, #141116 100%);
+}
+
+.panel {
+  display: grid;
+  gap: 16px;
+}
+
+.card {
+  padding: 16px;
+}
+
+.stats {
+  display: grid;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.stats strong {
+  color: var(--ink);
+}
+
+.controls {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.controls li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+}
+
+.controls strong {
+  color: var(--ink);
+  text-align: right;
+}
+
+p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+@media (max-width: 1280px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .status {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: start;
+  }
+}

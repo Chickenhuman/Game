@@ -1,0 +1,36 @@
+; Engine configuration file.
+; This project was scaffolded without the Godot editor so it can be completed
+; later in an environment where Godot 4.x is available.
+config_version=5
+
+[application]
+config/name="Black Halo"
+run/main_scene="res://scenes/main/Main.tscn"
+config/features=PackedStringArray("4.2")
+config/icon="res://assets/ui/generated/black_halo_sigil.svg"
+
+[autoload]
+GameState="*res://autoload/GameState.gd"
+SaveService="*res://autoload/SaveService.gd"
+RunDirector="*res://autoload/RunDirector.gd"
+SceneRouter="*res://autoload/SceneRouter.gd"
+ContentLibrary="*res://autoload/ContentLibrary.gd"
+InputConfig="*res://autoload/InputConfig.gd"
+
+[display]
+window/size/viewport_width=1600
+window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[physics]
+common/physics_ticks_per_second=60
+
+[rendering]
+renderer/rendering_method="mobile"
+textures/canvas_textures/default_texture_filter=0
+anti_aliasing/quality/msaa_2d=0
+
+[editor]
+version_control_autoload_on_startup=false
+

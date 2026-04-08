@@ -1,0 +1,11 @@
+{
+  "name": "black-halo-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "web": "node web/server.mjs",
+    "start": "node web/server.mjs",
+    "check:web": "node --check web/game.js"
+  }
+}
+
