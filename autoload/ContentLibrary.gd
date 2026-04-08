@@ -237,7 +237,7 @@ func _build_weapons() -> void:
 	greatblade.stagger = 280.0
 	greatblade.gloom_gain = 9.0
 	greatblade.attack_cooldown = 0.38
-	greatblade.skill_name = "Ash Breaker"
+	greatblade.skill_name = "Halo Breaker"
 	greatblade.weapon_asset_path = "res://assets/weapons/imagen/cael_greatblade.png"
 	weapons[greatblade.weapon_id] = greatblade
 
@@ -349,9 +349,9 @@ func _create_phase(phase_id: StringName, display_name: String, hp_threshold: flo
 	return phase
 
 func _build_rooms() -> void:
-	_register_room(&"hub_sanctuary", "Sanctuary of Ash", &"ashfall", &"hub", true, {"right": {"target": "ashfall_gate", "label": "March into the Bastion", "spawn_tag": "left"}})
+	_register_room(&"hub_sanctuary", "Wake Ward", &"ashfall", &"hub", true, {"right": {"target": "ashfall_gate", "label": "March into the Bastion", "spawn_tag": "left"}})
 	_register_room(&"ashfall_gate", "Ashfall Gate", &"ashfall", &"gate", true, {
-		"left": {"target": "hub_sanctuary", "label": "Return to Sanctuary", "spawn_tag": "right"},
+		"left": {"target": "hub_sanctuary", "label": "Return to the Ward", "spawn_tag": "right"},
 		"right": {"target": "ashfall_rampart", "label": "Advance the Rampart", "spawn_tag": "left"},
 		"up": {"target": "fallen_armory", "label": "Side Path: Fallen Armory", "spawn_tag": "down"},
 	}, ["shield_paladin"])
@@ -452,7 +452,7 @@ func _build_dialogues() -> void:
 	_register_dialogue(&"aurex_intro", "Sir Aurex", "Mercy belongs to the obedient. Kneel, and I may make your death brief.")
 	_register_dialogue(&"aurex_phase_shift", "Sir Aurex", "Then I will break mercy itself.")
 	_register_dialogue(&"aurex_defeat", "Cael Ashborne", "Your mercy was another blade. I will carry the chain onward.")
-	_register_dialogue(&"black_wing_unlock", "Memory of Cael", "Even ash remembers how to rise.")
+	_register_dialogue(&"black_wing_unlock", "Memory of Cael", "Even the fallen remember how to rise.")
 	_register_dialogue(&"seraph_intro", "Seraph Vale", "They made me in your image. I chose to surpass it.")
 	_register_dialogue(&"seraph_phase_shift_1", "Seraph Vale", "You taught the kingdom how to fear. I taught it how to endure.")
 	_register_dialogue(&"seraph_phase_shift_2", "Seraph Vale", "Then come, predecessor. Let the second dawn bury the first.")

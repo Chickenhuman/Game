@@ -36,7 +36,7 @@ func _ready() -> void:
 	hint_label = Label.new()
 	hint_label.position = Vector2(36, 132)
 	hint_label.add_theme_font_size_override("font_size", 16)
-	hint_label.text = "Move: A/D  Jump: Space  Dash: Shift  Attack: J/K  Skill: L  Parry: I  Interact: E"
+	hint_label.text = "Move: Arrows  Jump: Space/Up  Light: Z  Heavy: X  Dash: C  Parry: V  Skill: A  Interact: Down/Enter"
 	root.add_child(hint_label)
 
 	message_label = Label.new()
@@ -49,7 +49,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var room := ContentLibrary.get_room(GameState.run.current_room)
 	room_label.text = room.display_name if room != null else "Black Halo"
-	stats_label.text = "HP %.0f/%.0f   Gloom %.0f   Ash %d   Weapon %s   Oath %s" % [
+	stats_label.text = "HP %.0f/%.0f   Gloom %.0f   Imprint %d   Weapon %s   Oath %s" % [
 		GameState.run.health,
 		GameState.run.max_health,
 		GameState.run.gloom,

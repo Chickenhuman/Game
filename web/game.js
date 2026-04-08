@@ -1,9 +1,25 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+const shellEl = document.querySelector(".shell");
 const roomNameEl = document.getElementById("roomName");
 const messageEl = document.getElementById("messageText");
 const statsEl = document.getElementById("stats");
 const languageSelectEl = document.getElementById("languageSelect");
+const titleOverlayEl = document.getElementById("titleOverlay");
+const titleMenuEl = document.getElementById("titleMenu");
+const titleHeroImageEl = document.getElementById("titleHeroImage");
+const titleLogoImageEl = document.getElementById("titleLogoImage");
+const titleTaglineEl = document.getElementById("titleTagline");
+const titleLoglineEl = document.getElementById("titleLogline");
+const titlePanelEyebrowEl = document.getElementById("titlePanelEyebrow");
+const titlePanelTitleEl = document.getElementById("titlePanelTitle");
+const titlePanelBodyEl = document.getElementById("titlePanelBody");
+const titlePanelListEl = document.getElementById("titlePanelList");
+const titleSecondaryEyebrowEl = document.getElementById("titleSecondaryEyebrow");
+const titleSecondaryTitleEl = document.getElementById("titleSecondaryTitle");
+const titleSecondaryListEl = document.getElementById("titleSecondaryList");
+const titleControlsHintEl = document.getElementById("titleControlsHint");
+const titleActionButtons = Array.from(document.querySelectorAll("[data-title-action]"));
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
@@ -12,6 +28,35 @@ const GRAVITY = 2200;
 const STORAGE_KEY = "black_halo_web_save_v1";
 const LANGUAGE_KEY = "black_halo_web_lang_v1";
 const ROOM_SIZE = { width: WIDTH, height: HEIGHT };
+const TITLE_ACTION_ORDER = ["continue", "new_run", "chronicle", "armory", "reset_game"];
+
+const PLAYER_BASE_STATS = {
+  maxHealth: 60,
+  speed: 300,
+  skillCost: 34
+};
+
+const UPGRADE_PATHS = {
+  vigor: [
+    { cost: 4, healthBonus: 12 },
+    { cost: 7, healthBonus: 14 },
+    { cost: 11, healthBonus: 18 }
+  ],
+  might: [
+    { cost: 4, damageBonus: 0.14 },
+    { cost: 7, damageBonus: 0.16 },
+    { cost: 11, damageBonus: 0.18 }
+  ],
+  focus: [
+    { cost: 5, gloomBonus: 0.18, skillCostReduction: 4 },
+    { cost: 9, gloomBonus: 0.24, skillCostReduction: 6 }
+  ]
+};
+
+const MOBILITY_UPGRADES = [
+  { abilityId: "chain_grapple", cost: 8 },
+  { abilityId: "black_wing", cost: 14, requires: "chain_grapple" }
+];
 
 const COLORS = {
   ink: "#f2ead7",
@@ -29,17 +74,18 @@ const WEAPONS = {
   fallen_greatblade: {
     id: "fallen_greatblade",
     name: "Fallen Greatblade",
-    baseDamage: 18,
-    heavyDamage: 34,
+    baseDamage: 11,
+    heavyDamage: 21,
     reach: 132,
     stagger: 0.34,
-    gloomGain: 9,
-    skill: "Ash Breaker",
+    gloomGain: 7,
+    skill: "Halo Breaker",
     bladeLength: 192,
     bladeWidth: 24,
     gripOffset: { x: 28, y: -84 },
     profiles: {
       light: {
+        startup: 0.1,
         duration: 0.24,
         activeStart: 0.14,
         activeEnd: 0.74,
@@ -49,6 +95,7 @@ const WEAPONS = {
         glowColor: "rgba(227,219,199,0.42)"
       },
       heavy: {
+        startup: 0.18,
         duration: 0.38,
         activeStart: 0.18,
         activeEnd: 0.86,
@@ -58,6 +105,7 @@ const WEAPONS = {
         glowColor: "rgba(168,140,87,0.44)"
       },
       skill: {
+        startup: 0.16,
         duration: 0.46,
         activeStart: 0.12,
         activeEnd: 0.9,
@@ -71,17 +119,18 @@ const WEAPONS = {
   chain_glaive: {
     id: "chain_glaive",
     name: "Chain Glaive",
-    baseDamage: 14,
-    heavyDamage: 26,
+    baseDamage: 9,
+    heavyDamage: 17,
     reach: 156,
     stagger: 0.28,
-    gloomGain: 10,
+    gloomGain: 8,
     skill: "Grief Spiral",
     bladeLength: 176,
     bladeWidth: 18,
     gripOffset: { x: 30, y: -82 },
     profiles: {
       light: {
+        startup: 0.08,
         duration: 0.2,
         activeStart: 0.1,
         activeEnd: 0.78,
@@ -91,6 +140,7 @@ const WEAPONS = {
         glowColor: "rgba(227,219,199,0.34)"
       },
       heavy: {
+        startup: 0.15,
         duration: 0.34,
         activeStart: 0.12,
         activeEnd: 0.88,
@@ -100,6 +150,7 @@ const WEAPONS = {
         glowColor: "rgba(168,140,87,0.42)"
       },
       skill: {
+        startup: 0.14,
         duration: 0.44,
         activeStart: 0.08,
         activeEnd: 0.94,
@@ -189,7 +240,7 @@ const ENEMIES = {
     maxHealth: 58,
     speed: 86,
     damage: 12,
-    reach: 86,
+    reach: 132,
     attackWindup: 0.38
   },
   lancer: {
@@ -199,7 +250,7 @@ const ENEMIES = {
     maxHealth: 46,
     speed: 124,
     damage: 11,
-    reach: 132,
+    reach: 184,
     attackWindup: 0.28
   },
   choir_adept: {
@@ -209,7 +260,7 @@ const ENEMIES = {
     maxHealth: 36,
     speed: 72,
     damage: 9,
-    reach: 168,
+    reach: 224,
     attackWindup: 0.6,
     ranged: true
   },
@@ -220,7 +271,7 @@ const ENEMIES = {
     maxHealth: 50,
     speed: 148,
     damage: 12,
-    reach: 108,
+    reach: 162,
     attackWindup: 0.3
   },
   blessed_hound: {
@@ -230,7 +281,7 @@ const ENEMIES = {
     maxHealth: 40,
     speed: 176,
     damage: 8,
-    reach: 86,
+    reach: 148,
     attackWindup: 0.22
   }
 };
@@ -243,7 +294,7 @@ const BOSSES = {
     maxHealth: 220,
     speed: 118,
     damage: 15,
-    reach: 132,
+    reach: 196,
     phases: [
       { threshold: 1, name: "Mercy Bound", specialCooldown: 3.2 },
       { threshold: 0.48, name: "Mercy Broken", specialCooldown: 2.1 }
@@ -256,7 +307,7 @@ const BOSSES = {
     maxHealth: 340,
     speed: 154,
     damage: 18,
-    reach: 148,
+    reach: 212,
     phases: [
       { threshold: 1, name: "Second Dawn", specialCooldown: 3.1 },
       { threshold: 0.66, name: "Holy Pursuit", specialCooldown: 2.2 },
@@ -279,7 +330,7 @@ const SIDE_ROOM_IDS = [
 const ROOMS = {
   hub_sanctuary: {
     id: "hub_sanctuary",
-    name: "Sanctuary of Ash",
+    name: "Wake Ward",
     sector: "ashfall",
     layout: "hub",
     mainPath: true,
@@ -299,7 +350,7 @@ const ROOMS = {
     mainPath: true,
     enemies: ["shield_paladin"],
     exits: {
-      left: { target: "hub_sanctuary", label: "Return to Sanctuary", spawnTag: "right" },
+      left: { target: "hub_sanctuary", label: "Return to the Ward", spawnTag: "right" },
       right: { target: "ashfall_rampart", label: "Advance the Rampart", spawnTag: "left" },
       up: { target: "fallen_armory", label: "Side Path: Fallen Armory", spawnTag: "down" }
     }
@@ -527,7 +578,7 @@ const ROOMS = {
 const DIALOGUE = {
   hub_intro: {
     en: "Brother Niv: The kingdom named you blasphemy. The walls remember another title.",
-    ko: "니브 형제: 왕국은 당신을 신성모독이라 불렀지. 하지만 이 벽들은 다른 이름을 기억하고 있네."
+    ko: "니브 형제: 왕국은 널 신성모독이라 불렀지. 하지만 이 벽은 네게 다른 이름을 기억하고 있네."
   },
   mara_forge: {
     en: "Mara Bellwright: Pick your edge carefully. The bastion forgives nothing.",
@@ -535,27 +586,27 @@ const DIALOGUE = {
   },
   joren_oath: {
     en: "Sir Joren: Every oath is a chain. Choose the one you can bear.",
-    ko: "조렌 경: 모든 서약은 사슬이다. 네가 감당할 수 있는 것을 선택해라."
+    ko: "조렌 경: 모든 서약은 사슬이다. 끝까지 감당할 수 있는 것을 골라라."
   },
   aurex_intro: {
     en: "Sir Aurex: Mercy belongs to the obedient. Kneel, and I may make your death brief.",
-    ko: "오렉스 경: 자비는 순종하는 자의 것이다. 무릎 꿇어라. 그러면 네 죽음쯤은 짧게 끝내주마."
+    ko: "오렉스 경: 자비는 순종하는 자의 것이다. 무릎 꿇어라. 그러면 네 목숨만은 단번에 끊어주마."
   },
   aurex_shift: {
     en: "Sir Aurex: Then I will break mercy itself.",
-    ko: "오렉스 경: 그렇다면 자비 그 자체를 부숴주지."
+    ko: "오렉스 경: 그렇다면 자비 자체를 부숴주지."
   },
   aurex_defeat: {
     en: "Cael Ashborne: Your mercy was another blade. I carry the chain onward.",
-    ko: "케일 애시본: 네 자비 또한 또 하나의 칼날이었다. 이제 그 사슬은 내가 짊어진다."
+    ko: "케일 애시본: 네 자비도 결국 또 다른 칼날이었군. 이제 그 사슬은 내가 끌고 간다."
   },
   black_wing_unlock: {
-    en: "Memory of Cael: Even ash remembers how to rise.",
-    ko: "케일의 기억: 재조차도 다시 날아오르는 법을 기억한다."
+    en: "Memory of Cael: Even the fallen remember how to rise.",
+    ko: "케일의 기억: 추락한 것조차 다시 떠오르는 법을 기억한다."
   },
   seraph_intro: {
     en: "Seraph Vale: They made me in your image. I chose to surpass it.",
-    ko: "세라프 베일: 그들은 나를 네 형상으로 빚었지. 하지만 나는 그걸 넘어서는 길을 택했다."
+    ko: "세라프 베일: 그들은 나를 네 형상으로 빚었지. 하지만 나는 그 형상마저 넘어서는 길을 택했다."
   },
   seraph_shift_1: {
     en: "Seraph Vale: You taught the kingdom how to fear. I taught it how to endure.",
@@ -563,7 +614,7 @@ const DIALOGUE = {
   },
   seraph_shift_2: {
     en: "Seraph Vale: Then come, predecessor. Let the second dawn bury the first.",
-    ko: "세라프 베일: 그렇다면 와라, 선대여. 두 번째 새벽으로 첫 번째 새벽을 묻어주마."
+    ko: "세라프 베일: 그렇다면 와라, 선대여. 두 번째 새벽으로 첫 번째를 묻어주마."
   },
   seraph_defeat: {
     en: "Seraph Vale: If I fall... do not let them make a third.",
@@ -573,8 +624,8 @@ const DIALOGUE = {
 
 const UI_TEXT = {
   en: {
-    page_title: "Black Halo Web Vertical Slice",
-    heading: "Web Vertical Slice",
+    page_title: "Black Halo",
+    heading: "Black Halo",
     language_label: "Language",
     card_status: "Status",
     card_controls: "Controls",
@@ -599,37 +650,112 @@ const UI_TEXT = {
     ctrl_new_run_value: "N",
     goal_body: "Break through the Ashfall Bastion, defeat Sir Aurex, claim Chain Grapple, ascend the Reliquary, awaken Black Wing, and confront Seraph Vale.",
     canvas_label: "Black Halo game canvas",
-    hint_default: "Press Down Arrow or Enter near sigils, altars, and doors.",
+    title_menu_aria: "Title Menu",
+    title_status_room: "Wake Ward",
+    title_status_message: "The Black Halo is no halo at all. It is a sacred machine built to remember how to make another hero.",
+    title_hero_alt: "Cael Ashborne standing beneath the broken Black Halo while Seraph Vale watches from the reflected sanctum.",
+    title_logo_alt: "Black Halo title mark",
+    title_tagline: "Metroidvania Roguelike of Broken Oaths, Relics, and Manufactured Saints",
+    title_logline: "Awaken as Cael Ashborne, the fallen original frame, cross Ashfall, Reliquary, and Mirror, and shatter the succession engine that forged Seraph Vale in your image.",
+    title_action_continue: "Continue",
+    title_action_new_run: "New Run",
+    title_action_chronicle: "Chronicle",
+    title_action_armory: "Armory",
+    title_action_reset_game: "Reset Game",
+    title_reset_confirm: "Reset Game",
+    title_reset_prompt: "Erase all saved progress and begin from a clean state? Language settings will stay.",
+    title_controls_hint: "Arrow Up / Down to choose, Enter or Z to confirm, Left / Right to swap panels.",
+    title_chronicle_eyebrow: "Original Frame",
+    title_chronicle_title: "Cael Ashborne and the Second Dawn",
+    title_chronicle_body: "The Black Halo is not a saint's crown. It is a succession engine that catalogued a hero, broke him into memory and combat data, and built Seraph Vale as a more obedient dawn.",
+    title_chronicle_item_1_title: "Black Halo",
+    title_chronicle_item_1_body: "A fractured halo-memory device that preserves war, guilt, and technique so the kingdom can manufacture another champion.",
+    title_chronicle_item_2_title: "Wake Ward",
+    title_chronicle_item_2_body: "Not a true refuge, but a recovery chamber disguised as mercy and resurrection.",
+    title_chronicle_item_3_title: "Sir Aurex",
+    title_chronicle_item_3_body: "Warden of mercy. He prolongs suffering to preserve order, then realizes mercy was another blade.",
+    title_chronicle_item_4_title: "Seraph Vale",
+    title_chronicle_item_4_body: "The immaculate Second Dawn, refined from Cael's frame data to surpass and bury the first hero.",
+    title_dominion_eyebrow: "Three Dominions",
+    title_dominion_title: "Ashfall, Reliquary, Mirror",
+    title_dominion_item_1_title: "Ashfall",
+    title_dominion_item_1_body: "War ruin, ash storms, torn banners, and the outer bastion where the kingdom learned to sanctify execution.",
+    title_dominion_item_2_title: "Reliquary",
+    title_dominion_item_2_body: "Lifts, chains, archives, and official mercy: the institution that stored heroes like weapons.",
+    title_dominion_item_3_title: "Mirror",
+    title_dominion_item_3_body: "Glass choirs and reflective sanctums where identities are corrected, copied, and replaced.",
+    title_dominion_item_4_title: "Second Dawn",
+    title_dominion_item_4_body: "The kingdom's answer to failure was never mourning. It was building a better successor.",
+    title_armory_eyebrow: "War Ecologies",
+    title_armory_title: "Weapons, Oaths, Relics, Growth",
+    title_armory_body: "Black Halo's equipment ecology runs on four layers: weapons define cadence, relics tune doctrine, oaths lock long-form philosophy, and reinforcement currencies from routes, vaults, and bosses harden Cael between descents.",
+    title_armory_item_1_title: "{weapon} / {skill}",
+    title_armory_item_1_body: "Deliberate execution steel. Slow, punishing arcs built to crush anchors, judges, and bosses.",
+    title_armory_item_2_title: "{weapon} / {skill}",
+    title_armory_item_2_body: "Pursuit weaponry. Chain reach, crowd pressure, and air control for hunting backline zealots and breakaway prey.",
+    title_armory_item_3_title: "{oath1} / {oath2} / {oath3}",
+    title_armory_item_3_body: "Choose a creed, not a class: execution for damage, pursuit for tempo, silence for composure and parry stability.",
+    title_armory_item_4_title: "Reinforcement Economy",
+    title_armory_item_4_body: "Imprint caches, side-room spoils, Aurex-level gates, and boss victories all feed permanent upgrades instead of disposable loot inflation.",
+    title_growth_eyebrow: "Run Shapers",
+    title_growth_title: "Relics, Mobility, and Future Frames",
+    title_growth_item_1_title: "{ability1} / {ability2}",
+    title_growth_item_1_body: "Mobility is story: seize the chain that bound the institution, then claim the wing that lets the discarded rise again.",
+    title_growth_item_2_title: "{relic1} / {relic2} / {relic3}",
+    title_growth_item_2_body: "Ember Bead, Oath Nail, and Veil Ribbon show how relics bend aggression, stagger, parry windows, and route planning.",
+    title_growth_item_3_title: "{relic4} / {weapon3} / {weapon4}",
+    title_growth_item_3_body: "Choir Censer pushes skills, while the documented Glass Rapier and Penitence Maul prove the wider armory reaches past two starting weapons.",
+    title_growth_item_4_title: "{boss1} / {boss2}",
+    title_growth_item_4_body: "Aurex is mercy turned into violence. Seraph is the perfected successor waiting at the end of the machine.",
+    hint_default: "Press Down Arrow or Enter near sigils, shrines, and doors.",
     stat_health: "Health",
     stat_gloom: "Gloom",
-    stat_ash: "Ash",
+    stat_ash: "Imprint",
     stat_weapon: "Weapon",
     stat_oath: "Oath",
     stat_abilities: "Abilities",
+    stat_growth: "Growth",
     stat_relic: "Relic",
     stat_none: "None",
     stat_none_yet: "None yet",
+    growth_summary: "V{vigor} / M{might} / F{focus}",
+    upgrade_vigor_name: "Vigor",
+    upgrade_might_name: "Might",
+    upgrade_focus_name: "Focus",
+    upgrade_mobility_name: "Mobility",
+    label_vigor_next: "Vigor +{amount} ({cost} Imprints)",
+    label_might_next: "Might {rank} ({cost} Imprints)",
+    label_focus_next: "Focus {rank} ({cost} Imprints)",
+    label_mobility_next: "{ability} ({cost} Imprints)",
+    label_upgrade_maxed: "{name} Max",
     overlay_title: "Seraph Vale Falls",
     overlay_body: "The cycle breaks, but only for now.",
     overlay_restart: "Press N to begin another run.",
-    msg_run_start: "The sanctuary drags Cael back from ruin.",
+    msg_run_start: "The ward drags Cael back from ruin. Imprints and etched growth remain.",
     msg_skill_fire: "{skill} tears through the sanctified air.",
     msg_not_enough_gloom: "Not enough Gloom for a skill attack.",
     msg_chain_grapple_ignite: "Chain Grapple ignites.",
     msg_chain_grapple_unlock: "Chain Grapple unlocked.",
     msg_room_cleared: "Room cleared.",
-    msg_player_death: "Cael falls. The sanctuary calls him back.",
+    msg_player_death: "Cael falls. The ward calls him back.",
     msg_locked_by: "Locked by {ability}.",
     msg_archive: "{dialogue} Memory shards: {count}.",
     msg_defeat_defenders: "Defeat the room's defenders before claiming its reward.",
-    msg_recovered_ash: "Recovered 20 Ash.",
+    msg_recovered_ash: "Recovered {amount} Imprints.",
     msg_memory_shard: "A memory shard crawls back into focus.",
     msg_relic_claimed: "Relic claimed: {relic}.",
+    msg_need_ash: "Need {cost} Imprints.",
+    msg_upgrade_maxed: "{name} cannot grow further.",
+    msg_upgrade_vigor: "Vigor rises. Max health reaches {value}.",
+    msg_upgrade_might: "Might rises. Weapon damage grows by {percent}%.",
+    msg_upgrade_focus: "Focus deepens. Skill cost falls to {value} Gloom.",
+    msg_upgrade_mobility: "{ability} is etched into Cael's body.",
+    msg_continue_run: "The archive opens where the last run left off.",
     msg_awaken: "Awaken, fallen hero. Break the second dawn."
   },
   ko: {
-    page_title: "블랙 헤일로 웹 버티컬 슬라이스",
-    heading: "웹 버티컬 슬라이스",
+    page_title: "블랙 헤일로",
+    heading: "블랙 헤일로",
     language_label: "언어",
     card_status: "상태",
     card_controls: "조작",
@@ -654,32 +780,107 @@ const UI_TEXT = {
     ctrl_new_run_value: "N",
     goal_body: "애시폴 성채를 돌파하고, 오렉스 경을 쓰러뜨려 체인 그래플을 얻은 뒤, 성유물 승강로를 올라 블랙 윙을 깨우고 세라프 베일과 결전하라.",
     canvas_label: "블랙 헤일로 게임 캔버스",
-    hint_default: "문양, 제단, 문 근처에서 아래 방향키나 Enter를 누르세요.",
+    title_menu_aria: "타이틀 메뉴",
+    title_status_room: "각성실",
+    title_status_message: "블랙 헤일로는 후광이 아니다. 또 다른 영웅을 만들어 내기 위해 기억을 보존하는 신성한 전쟁 기계다.",
+    title_hero_alt: "부서진 블랙 헤일로 아래 선 케일 애시본과, 거울 성소 너머에서 그를 지켜보는 세라프 베일",
+    title_logo_alt: "블랙 헤일로 타이틀 로고",
+    title_tagline: "부서진 서약과 금지된 유물, 인공 성자가 얽힌 메트로베니아 로그라이크",
+    title_logline: "몰락한 원형 개체 케일 애시본으로 되살아나 애시폴과 성유물 성역, 거울 성역을 돌파하고, 네 형상을 바탕으로 세라프 베일을 빚어 낸 계승 장치를 파괴하라.",
+    title_action_continue: "이어하기",
+    title_action_new_run: "새 런",
+    title_action_chronicle: "연대기",
+    title_action_armory: "무기고",
+    title_action_reset_game: "게임 초기화",
+    title_reset_confirm: "게임 초기화",
+    title_reset_prompt: "저장된 진행 상황을 모두 지우고 완전히 처음부터 시작할까요? 언어 설정은 유지됩니다.",
+    title_controls_hint: "위 / 아래 방향키로 선택하고 Enter 또는 Z로 확정하세요. 좌 / 우 방향키로 패널을 넘길 수 있습니다.",
+    title_chronicle_eyebrow: "원형 개체",
+    title_chronicle_title: "케일 애시본과 두 번째 새벽",
+    title_chronicle_body: "블랙 헤일로는 성인의 왕관이 아니다. 한 영웅을 기억과 전투 감각의 데이터로 분해해 기록하고, 그보다 더 순종적인 후계자 세라프 베일을 빚어 내는 계승 장치다.",
+    title_chronicle_item_1_title: "블랙 헤일로",
+    title_chronicle_item_1_body: "전쟁과 죄책감, 기술을 보존해 왕국이 또 다른 구원자를 만들어 낼 수 있게 하는 파편화된 후광 기억 장치.",
+    title_chronicle_item_2_title: "각성실",
+    title_chronicle_item_2_body: "진정한 안식처가 아니라 자비와 부활의 이름으로 꾸민 회수실이다.",
+    title_chronicle_item_3_title: "오렉스 경",
+    title_chronicle_item_3_body: "자비의 수호자. 질서를 지키기 위해 고통을 길게 끌며, 끝내 자비 또한 또 하나의 칼날이었음을 깨닫는다.",
+    title_chronicle_item_4_title: "세라프 베일",
+    title_chronicle_item_4_body: "케일의 전투 감각을 정제해 첫 번째 영웅을 넘어설 목적으로 빚어낸 완벽한 두 번째 새벽.",
+    title_dominion_eyebrow: "세 구역",
+    title_dominion_title: "애시폴, 성유물 성역, 거울 성역",
+    title_dominion_item_1_title: "애시폴",
+    title_dominion_item_1_body: "재 폭풍과 찢긴 깃발, 처형의 논리를 성스럽게 만든 외곽 성채의 전쟁 폐허.",
+    title_dominion_item_2_title: "성유물 성역",
+    title_dominion_item_2_body: "승강로와 사슬, 기록고와 공식적인 자비가 영웅을 무기처럼 보관하던 제도의 심장부.",
+    title_dominion_item_3_title: "거울 성역",
+    title_dominion_item_3_body: "정체성을 교정하고 복제하고 대체하는 유리의 합창당과 반사 성소.",
+    title_dominion_item_4_title: "두 번째 새벽",
+    title_dominion_item_4_body: "왕국은 실패를 애도하지 않았다. 더 나은 후계자를 만들어 대체했을 뿐이다.",
+    title_armory_eyebrow: "전쟁 생태계",
+    title_armory_title: "무기, 서약, 유물, 성장",
+    title_armory_body: "블랙 헤일로의 장비 체계는 네 축으로 이루어진다. 무기가 전투 리듬을 만들고, 유물이 운용의 성향을 기울이며, 서약이 장기적인 철학을 정하고, 루트와 금고, 보스에서 회수한 강화 재화가 케일의 몸을 단련한다.",
+    title_armory_item_1_title: "{weapon} / {skill}",
+    title_armory_item_1_body: "느리고 무거운 처형의 강철. 앵커형 적과 심판자, 보스를 부수기 위한 명확한 일격.",
+    title_armory_item_2_title: "{weapon} / {skill}",
+    title_armory_item_2_body: "추격을 위한 무기. 사슬 리치와 군중 압박, 공중 제어로 후열과 도주 대상을 사냥한다.",
+    title_armory_item_3_title: "{oath1} / {oath2} / {oath3}",
+    title_armory_item_3_body: "직업이 아니라 교리를 고른다. 처형은 화력, 추적은 템포, 침묵은 침착함과 패링 운용을 안정시키는 데 초점을 둔다.",
+    title_armory_item_4_title: "강화 재화의 사다리",
+    title_armory_item_4_body: "각인 보관함, 사이드룸 전리품, 오렉스급 관문 보상, 보스 격파가 모두 일회성 전리품이 아니라 영구 성장의 자원이 된다.",
+    title_growth_eyebrow: "런을 바꾸는 축",
+    title_growth_title: "유물, 기동, 다음 프레임",
+    title_growth_item_1_title: "{ability1} / {ability2}",
+    title_growth_item_1_body: "기동은 곧 서사다. 제도를 묶던 사슬을 붙잡고, 버려진 원형을 다시 떠오르게 하는 날개를 손에 넣어라.",
+    title_growth_item_2_title: "{relic1} / {relic2} / {relic3}",
+    title_growth_item_2_body: "불씨 구슬, 서약 못, 장막 리본은 공격성, 경직, 패링 타이밍, 루트 선택을 어떻게 뒤트는지 보여 준다.",
+    title_growth_item_3_title: "{relic4} / {weapon3} / {weapon4}",
+    title_growth_item_3_body: "합창단 향로는 스킬 축을 밀어 올리고, 문서에 기록된 유리 세검과 참회 철퇴는 무기고가 두 시작 무기보다 훨씬 넓다는 사실을 보여 준다.",
+    title_growth_item_4_title: "{boss1} / {boss2}",
+    title_growth_item_4_body: "오렉스는 폭력으로 뒤틀린 자비이고, 세라프는 기계 끝에서 기다리는 완성된 후계자다.",
+    hint_default: "문양, 제단, 출입문 앞에서 아래 방향키나 Enter를 누르세요.",
     stat_health: "체력",
     stat_gloom: "글룸",
-    stat_ash: "재",
+    stat_ash: "각인",
     stat_weapon: "무기",
     stat_oath: "서약",
     stat_abilities: "능력",
+    stat_growth: "성장",
     stat_relic: "유물",
     stat_none: "없음",
     stat_none_yet: "아직 없음",
+    growth_summary: "강인함 {vigor} / 위력 {might} / 집중 {focus}",
+    upgrade_vigor_name: "강인함",
+    upgrade_might_name: "위력",
+    upgrade_focus_name: "집중",
+    upgrade_mobility_name: "기동",
+    label_vigor_next: "강인함 +{amount} ({cost} 각인)",
+    label_might_next: "위력 {rank}단계 ({cost} 각인)",
+    label_focus_next: "집중 {rank}단계 ({cost} 각인)",
+    label_mobility_next: "{ability} ({cost} 각인)",
+    label_upgrade_maxed: "{name} 강화 완료",
     overlay_title: "세라프 베일 격파",
     overlay_body: "순환은 끊어졌지만, 아직 완전히 끝난 것은 아니다.",
     overlay_restart: "다음 런을 시작하려면 N을 누르세요.",
-    msg_run_start: "성소가 케일을 다시 파멸 속에서 끌어올린다.",
+    msg_run_start: "각성실이 케일을 파멸의 끝에서 다시 끌어올린다. 각인과 새겨진 성장은 남는다.",
     msg_skill_fire: "{skill}가 성스러운 공기를 찢어발긴다.",
     msg_not_enough_gloom: "스킬 공격에 필요한 글룸이 부족하다.",
     msg_chain_grapple_ignite: "체인 그래플이 타오른다.",
-    msg_chain_grapple_unlock: "체인 그래플 해금.",
-    msg_room_cleared: "방을 정리했다.",
-    msg_player_death: "케일이 쓰러진다. 성소가 그를 다시 부른다.",
+    msg_chain_grapple_unlock: "체인 그래플이 개방되었다.",
+    msg_room_cleared: "구역을 제압했다.",
+    msg_player_death: "케일이 쓰러졌다. 각성실이 그를 다시 불러낸다.",
     msg_locked_by: "{ability}가 있어야 열린다.",
     msg_archive: "{dialogue} 기억 조각: {count}개.",
-    msg_defeat_defenders: "보상을 받으려면 먼저 이 방의 수호자들을 쓰러뜨려야 한다.",
-    msg_recovered_ash: "재 20을 회수했다.",
-    msg_memory_shard: "잊혔던 기억 조각이 다시 떠오른다.",
+    msg_defeat_defenders: "보상을 손에 넣으려면 먼저 이 구역의 수호자들을 쓰러뜨려야 한다.",
+    msg_recovered_ash: "각인 {amount}을 회수했다.",
+    msg_memory_shard: "잊힌 기억 조각이 되살아난다.",
     msg_relic_claimed: "유물 획득: {relic}.",
+    msg_need_ash: "{cost} 각인이 필요하다.",
+    msg_upgrade_maxed: "{name}은 더 이상 강화할 수 없다.",
+    msg_upgrade_vigor: "강인함이 높아진다. 최대 체력이 {value}가 된다.",
+    msg_upgrade_might: "위력이 높아진다. 무기 공격력이 {percent}% 상승한다.",
+    msg_upgrade_focus: "집중이 깊어진다. 스킬 소모가 글룸 {value}로 줄어든다.",
+    msg_upgrade_mobility: "{ability}가 케일의 육신에 새겨진다.",
+    msg_continue_run: "기록고가 지난 런이 멈춘 자리에서 다시 열린다.",
     msg_awaken: "깨어나라, 타락한 용사여. 두 번째 새벽을 부숴라."
   }
 };
@@ -688,10 +889,12 @@ const LOCALIZED_NAMES = {
   ko: {
     weapons: {
       fallen_greatblade: "타락한 대검",
-      chain_glaive: "사슬 글레이브"
+      chain_glaive: "사슬 글레이브",
+      glass_rapier: "유리 세검",
+      penitence_maul: "참회 철퇴"
     },
     weaponSkills: {
-      fallen_greatblade: "잿더미 파쇄",
+      fallen_greatblade: "후광 파쇄",
       chain_glaive: "비탄의 나선"
     },
     oaths: {
@@ -722,7 +925,7 @@ const LOCALIZED_NAMES = {
       seraph_vale: "세라프 베일"
     },
     rooms: {
-      hub_sanctuary: "재의 성소",
+      hub_sanctuary: "각성실",
       ashfall_gate: "애시폴 관문",
       ashfall_rampart: "찢긴 성벽길",
       ashfall_crypt: "지하묘지 초입",
@@ -747,7 +950,7 @@ const LOCALIZED_NAMES = {
 const LOCALIZED_LABELS = {
   ko: {
     "March into the Bastion": "성채로 진군",
-    "Return to Sanctuary": "성소로 돌아가기",
+    "Return to the Ward": "각성실로 돌아가기",
     "Advance the Rampart": "성벽길로 전진",
     "Side Path: Fallen Armory": "샛길: 몰락한 병기고",
     "Back to the Gate": "관문으로 돌아가기",
@@ -757,7 +960,7 @@ const LOCALIZED_LABELS = {
     "Enter the Shaft": "승강로로 진입",
     "Side Path: Prayer Cistern": "샛길: 기도의 저수조",
     "Return to the Crypt": "지하묘지로 돌아가기",
-    "Face Sir Aurex": "오렉스 경과 대치",
+    "Face Sir Aurex": "오렉스 경에게 맞서기",
     "Side Path: Thorns Vault": "샛길: 가시 금고",
     "Retreat to the Lift": "승강로로 후퇴",
     "Advance to the Archive": "기록고로 전진",
@@ -770,19 +973,68 @@ const LOCALIZED_LABELS = {
     "Side Path: Lost Scriptorium": "샛길: 잊힌 필사실",
     "Return to the Bridge": "다리로 돌아가기",
     "Return to the Choir": "합창당으로 돌아가기",
-    "Confront Seraph Vale": "세라프 베일과 대치",
+    "Confront Seraph Vale": "세라프 베일과 결전",
     "Side Path: Sealed Roof": "샛길: 봉인된 옥상",
     "Back to the Rampart": "성벽길로 돌아가기",
     "Back to the Crypt": "지하묘지로 돌아가기",
     "Back to the Lift": "승강로로 돌아가기",
     "Back to the Bridge": "다리로 돌아가기",
     "Back to the Choir": "합창당으로 돌아가기",
-    "Mara Bellwright: Cycle weapon": "마라 벨라이트: 무기 변경",
+    "Mara Bellwright: Cycle weapon": "마라 벨라이트: 무기 전환",
     "Brother Niv: Hear memory": "니브 형제: 기억 듣기",
     "Sir Joren: Cycle oath": "조렌 경: 서약 변경",
     "Claim Black Wing": "블랙 윙 획득",
-    "Claim room reward": "방 보상 획득"
+    "Claim room reward": "보상 받기"
   }
+};
+
+const LOCALIZED_PROPER_NOUNS = {
+  ko: [
+    ["Sanctum of the Second Dawn", "두 번째 새벽의 성소"],
+    ["Seraph Sanctum", "두 번째 새벽의 성소"],
+    ["Black Halo Succession Protocol", "블랙 헤일로 계승 의정서"],
+    ["Black Halo Inventory Fragment", "블랙 헤일로 분류표 단편"],
+    ["Drowned Prayer Leaves", "가라앉은 기도문"],
+    ["Brother Niv", "니브 형제"],
+    ["Mara Bellwright", "마라 벨라이트"],
+    ["Cael Ashborne", "케일 애시본"],
+    ["Sir Joren", "조렌 경"],
+    ["Sir Aurex", "오렉스 경"],
+    ["Seraph Vale", "세라프 베일"],
+    ["Wake Ward", "각성실"],
+    ["Ashfall Bastion", "애시폴 성채"],
+    ["Ashfall Crypt", "애시폴 지하묘지"],
+    ["Ashfall Gate", "애시폴 관문"],
+    ["Torn Rampart", "찢긴 성벽길"],
+    ["Crypt Threshold", "지하묘지 초입"],
+    ["Fallen Armory", "몰락한 병기고"],
+    ["Banner Ossuary", "깃발 납골당"],
+    ["Prayer Cistern", "기도의 저수조"],
+    ["Reliquary Lift", "성유물 승강로"],
+    ["Hall of Mercy", "자비의 전당"],
+    ["Thorns Vault", "가시 금고"],
+    ["Reliquary Archive", "성유물 기록고"],
+    ["Bell Tower", "종탑"],
+    ["Sunken Cells", "가라앉은 감방"],
+    ["Mirror Bridge", "거울 다리"],
+    ["Choir of Glass", "유리의 합창당"],
+    ["Lost Scriptorium", "잊힌 필사실"],
+    ["Sealed Roof", "봉인된 옥상"],
+    ["Black Wing", "블랙 윙"],
+    ["Chain Grapple", "체인 그래플"],
+    ["Mercy Broken", "부서진 자비"],
+    ["Second Dawn", "두 번째 새벽"],
+    ["Black Halo", "블랙 헤일로"],
+    ["Original Frame: C.A.", "원형 개체: C.A."],
+    ["Ashfall", "애시폴"],
+    ["Reliquary", "성유물 성역"],
+    ["Mirror", "거울 성역"]
+  ]
+};
+
+const DESIGN_WEAPON_NAMES = {
+  glass_rapier: "Glass Rapier",
+  penitence_maul: "Penitence Maul"
 };
 
 const CONTROLS = {
@@ -803,7 +1055,26 @@ const input = {
   pressed: new Set()
 };
 
+function hasUiControlFocus() {
+  const active = document.activeElement;
+  if (!active || active === document.body) {
+    return false;
+  }
+  const tagName = active.tagName;
+  return (
+    active.isContentEditable ||
+    tagName === "SELECT" ||
+    tagName === "INPUT" ||
+    tagName === "TEXTAREA" ||
+    tagName === "BUTTON" ||
+    tagName === "OPTION"
+  );
+}
+
 window.addEventListener("keydown", (event) => {
+  if (hasUiControlFocus()) {
+    return;
+  }
   if (!input.down.has(event.code)) {
     input.pressed.add(event.code);
   }
@@ -847,20 +1118,35 @@ function interpolate(template, vars = {}) {
 
 function t(key, vars = {}) {
   const template = UI_TEXT[currentLanguage]?.[key] ?? UI_TEXT.en[key] ?? key;
-  return interpolate(template, vars);
+  return localizeProperNouns(interpolate(template, vars));
 }
 
 function d(key, vars = {}) {
   const template = DIALOGUE[key]?.[currentLanguage] ?? DIALOGUE[key]?.en ?? key;
-  return interpolate(template, vars);
+  return localizeProperNouns(interpolate(template, vars));
+}
+
+function localizeProperNouns(text) {
+  if (typeof text !== "string") {
+    return text;
+  }
+  const glossary = LOCALIZED_PROPER_NOUNS[currentLanguage];
+  if (!glossary?.length) {
+    return text;
+  }
+  let localized = text;
+  glossary.forEach(([source, target]) => {
+    localized = localized.replaceAll(source, target);
+  });
+  return localized;
 }
 
 function getLocalizedName(group, id, fallback) {
-  return LOCALIZED_NAMES[currentLanguage]?.[group]?.[id] ?? fallback;
+  return localizeProperNouns(LOCALIZED_NAMES[currentLanguage]?.[group]?.[id] ?? fallback);
 }
 
 function getWeaponName(id) {
-  return getLocalizedName("weapons", id, WEAPONS[id]?.name || id);
+  return getLocalizedName("weapons", id, WEAPONS[id]?.name || DESIGN_WEAPON_NAMES[id] || id);
 }
 
 function getWeaponSkillName(id) {
@@ -892,7 +1178,7 @@ function getRoomName(id) {
 }
 
 function localizeLabel(text) {
-  return LOCALIZED_LABELS[currentLanguage]?.[text] ?? text;
+  return localizeProperNouns(LOCALIZED_LABELS[currentLanguage]?.[text] ?? text);
 }
 
 function resolveMessageToken(token) {
@@ -911,6 +1197,209 @@ function resolveMessageToken(token) {
   return "";
 }
 
+function getTitleAssetBase() {
+  return window.location.pathname.includes("/web/") ? "../assets/title" : "./assets/title";
+}
+
+function getTitleLogoPath() {
+  return `${getTitleAssetBase()}/${currentLanguage === "ko"
+    ? "black-halo-title-logo-ko.svg"
+    : "black-halo-title-logo-en.svg"}`;
+}
+
+function createTitleListItem(title, body) {
+  return { title: localizeProperNouns(title), body: localizeProperNouns(body) };
+}
+
+function getTitlePanels() {
+  return {
+    chronicle: {
+      eyebrow: t("title_chronicle_eyebrow"),
+      title: t("title_chronicle_title"),
+      body: t("title_chronicle_body"),
+      items: [
+        createTitleListItem(t("title_chronicle_item_1_title"), t("title_chronicle_item_1_body")),
+        createTitleListItem(t("title_chronicle_item_2_title"), t("title_chronicle_item_2_body")),
+        createTitleListItem(t("title_chronicle_item_3_title"), t("title_chronicle_item_3_body")),
+        createTitleListItem(t("title_chronicle_item_4_title"), t("title_chronicle_item_4_body"))
+      ],
+      secondaryEyebrow: t("title_dominion_eyebrow"),
+      secondaryTitle: t("title_dominion_title"),
+      secondaryItems: [
+        createTitleListItem(t("title_dominion_item_1_title"), t("title_dominion_item_1_body")),
+        createTitleListItem(t("title_dominion_item_2_title"), t("title_dominion_item_2_body")),
+        createTitleListItem(t("title_dominion_item_3_title"), t("title_dominion_item_3_body")),
+        createTitleListItem(t("title_dominion_item_4_title"), t("title_dominion_item_4_body"))
+      ]
+    },
+    armory: {
+      eyebrow: t("title_armory_eyebrow"),
+      title: t("title_armory_title"),
+      body: t("title_armory_body"),
+      items: [
+        createTitleListItem(
+          t("title_armory_item_1_title", {
+            weapon: getWeaponName("fallen_greatblade"),
+            skill: getWeaponSkillName("fallen_greatblade")
+          }),
+          t("title_armory_item_1_body")
+        ),
+        createTitleListItem(
+          t("title_armory_item_2_title", {
+            weapon: getWeaponName("chain_glaive"),
+            skill: getWeaponSkillName("chain_glaive")
+          }),
+          t("title_armory_item_2_body")
+        ),
+        createTitleListItem(
+          t("title_armory_item_3_title", {
+            oath1: getOathName("execution"),
+            oath2: getOathName("pursuit"),
+            oath3: getOathName("silence")
+          }),
+          t("title_armory_item_3_body")
+        ),
+        createTitleListItem(t("title_armory_item_4_title"), t("title_armory_item_4_body"))
+      ],
+      secondaryEyebrow: t("title_growth_eyebrow"),
+      secondaryTitle: t("title_growth_title"),
+      secondaryItems: [
+        createTitleListItem(
+          t("title_growth_item_1_title", {
+            ability1: getAbilityName("chain_grapple"),
+            ability2: getAbilityName("black_wing")
+          }),
+          t("title_growth_item_1_body")
+        ),
+        createTitleListItem(
+          t("title_growth_item_2_title", {
+            relic1: getRelicName("ember_bead"),
+            relic2: getRelicName("oath_nail"),
+            relic3: getRelicName("veil_ribbon")
+          }),
+          t("title_growth_item_2_body")
+        ),
+        createTitleListItem(
+          t("title_growth_item_3_title", {
+            relic4: getRelicName("choir_censer"),
+            weapon3: getWeaponName("glass_rapier"),
+            weapon4: getWeaponName("penitence_maul")
+          }),
+          t("title_growth_item_3_body")
+        ),
+        createTitleListItem(
+          t("title_growth_item_4_title", {
+            boss1: getBossName("sir_aurex"),
+            boss2: getBossName("seraph_vale")
+          }),
+          t("title_growth_item_4_body")
+        )
+      ]
+    }
+  };
+}
+
+function renderTitleList(container, items) {
+  if (!container) {
+    return;
+  }
+  container.replaceChildren();
+  items.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "title-card-item";
+    const title = document.createElement("strong");
+    title.textContent = item.title;
+    const body = document.createElement("span");
+    body.textContent = item.body;
+    row.append(title, body);
+    container.append(row);
+  });
+}
+
+function setTitleSelection(index) {
+  if (!game?.title) {
+    return;
+  }
+  let nextIndex = index;
+  if (nextIndex < 0) {
+    nextIndex = TITLE_ACTION_ORDER.length - 1;
+  }
+  if (nextIndex >= TITLE_ACTION_ORDER.length) {
+    nextIndex = 0;
+  }
+  if (!game.hasSave && TITLE_ACTION_ORDER[nextIndex] === "continue") {
+    nextIndex = nextIndex === 0 ? 1 : nextIndex;
+  }
+  game.title.selectedIndex = nextIndex;
+}
+
+function moveTitleSelection(step) {
+  if (!game?.title) {
+    return;
+  }
+  let nextIndex = game.title.selectedIndex;
+  do {
+    nextIndex = (nextIndex + step + TITLE_ACTION_ORDER.length) % TITLE_ACTION_ORDER.length;
+  } while (!game.hasSave && TITLE_ACTION_ORDER[nextIndex] === "continue");
+  game.title.selectedIndex = nextIndex;
+}
+
+function renderTitleOverlay() {
+  if (!titleOverlayEl || !game?.title) {
+    return;
+  }
+  const panels = getTitlePanels();
+  const panel = panels[game.title.activePanel] ?? panels.chronicle;
+  titleMenuEl?.setAttribute("aria-label", t("title_menu_aria"));
+  if (titleHeroImageEl) {
+    titleHeroImageEl.src = `${getTitleAssetBase()}/black-halo-title-hero.svg`;
+    titleHeroImageEl.alt = t("title_hero_alt");
+  }
+  if (titleLogoImageEl) {
+    titleLogoImageEl.src = getTitleLogoPath();
+    titleLogoImageEl.alt = t("title_logo_alt");
+  }
+  if (titleTaglineEl) {
+    titleTaglineEl.textContent = t("title_tagline");
+  }
+  if (titleLoglineEl) {
+    titleLoglineEl.textContent = t("title_logline");
+  }
+  if (titlePanelEyebrowEl) {
+    titlePanelEyebrowEl.textContent = panel.eyebrow;
+  }
+  if (titlePanelTitleEl) {
+    titlePanelTitleEl.textContent = panel.title;
+  }
+  if (titlePanelBodyEl) {
+    titlePanelBodyEl.textContent = panel.body;
+  }
+  if (titleSecondaryEyebrowEl) {
+    titleSecondaryEyebrowEl.textContent = panel.secondaryEyebrow;
+  }
+  if (titleSecondaryTitleEl) {
+    titleSecondaryTitleEl.textContent = panel.secondaryTitle;
+  }
+  if (titleControlsHintEl) {
+    titleControlsHintEl.textContent = t("title_controls_hint");
+  }
+  renderTitleList(titlePanelListEl, panel.items);
+  renderTitleList(titleSecondaryListEl, panel.secondaryItems);
+  titleActionButtons.forEach((button, index) => {
+    const action = button.dataset.titleAction;
+    button.textContent = t(`title_action_${action}`);
+    const isDisabled = action === "continue" && !game.hasSave;
+    button.disabled = isDisabled;
+    button.classList.toggle("is-disabled", isDisabled);
+    button.classList.toggle("is-selected", game.screen !== "play" && game.title.selectedIndex === index);
+    if (action === "chronicle" || action === "armory") {
+      button.setAttribute("aria-pressed", String(action === game.title.activePanel));
+    } else {
+      button.removeAttribute("aria-pressed");
+    }
+  });
+}
+
 function refreshEntityNames() {
   if (!window.blackHaloGame) {
     return;
@@ -922,6 +1411,10 @@ function refreshEntityNames() {
 
 function renderLocalizedMessage() {
   if (!messageEl) {
+    return;
+  }
+  if (game?.screen !== "play") {
+    messageEl.textContent = t("title_status_message");
     return;
   }
   messageEl.textContent = resolveMessageToken(game?.messageToken);
@@ -942,15 +1435,16 @@ function applyStaticTranslations() {
 
 function applyLanguage() {
   applyStaticTranslations();
-  if (game?.room) {
+  renderTitleOverlay();
+  if (game?.screen === "play" && game?.room) {
     roomNameEl.textContent = getRoomName(game.room.id);
     buildInteractionsForRoom(game.room);
   } else {
-    roomNameEl.textContent = getRoomName("hub_sanctuary");
+    roomNameEl.textContent = t("title_status_room");
   }
   refreshEntityNames();
   renderLocalizedMessage();
-  if (statsEl) {
+  if (statsEl && game?.screen === "play") {
     updateStats();
   }
 }
@@ -1034,6 +1528,56 @@ function randomRange(min, max) {
   return lerp(min, max, Math.random());
 }
 
+function createDefaultUpgrades() {
+  return {
+    vigor: 0,
+    might: 0,
+    focus: 0
+  };
+}
+
+function sanitizeUpgradeState(raw) {
+  const defaults = createDefaultUpgrades();
+  if (!raw || typeof raw !== "object") {
+    return defaults;
+  }
+  return Object.fromEntries(
+    Object.keys(defaults).map((track) => {
+      const cap = UPGRADE_PATHS[track].length;
+      const level = Number.isFinite(raw[track]) ? Math.floor(raw[track]) : 0;
+      return [track, clamp(level, 0, cap)];
+    })
+  );
+}
+
+function derivePlayerGrowth(meta) {
+  const upgrades = sanitizeUpgradeState(meta?.upgrades);
+  let maxHealth = PLAYER_BASE_STATS.maxHealth;
+  let damageMultiplier = 1;
+  let gloomMultiplier = 1;
+  let skillCost = PLAYER_BASE_STATS.skillCost;
+
+  for (let i = 0; i < upgrades.vigor; i += 1) {
+    maxHealth += UPGRADE_PATHS.vigor[i].healthBonus;
+  }
+  for (let i = 0; i < upgrades.might; i += 1) {
+    damageMultiplier += UPGRADE_PATHS.might[i].damageBonus;
+  }
+  for (let i = 0; i < upgrades.focus; i += 1) {
+    gloomMultiplier += UPGRADE_PATHS.focus[i].gloomBonus;
+    skillCost -= UPGRADE_PATHS.focus[i].skillCostReduction;
+  }
+
+  return {
+    upgrades,
+    maxHealth,
+    damageMultiplier,
+    gloomMultiplier,
+    skillCost: Math.max(14, skillCost),
+    speed: PLAYER_BASE_STATS.speed
+  };
+}
+
 function angleForFacing(angle, facing) {
   return facing === 1 ? angle : Math.PI - angle;
 }
@@ -1079,7 +1623,8 @@ function createDefaultMeta() {
     unlockedWeapons: ["fallen_greatblade", "chain_glaive"],
     memoryShards: [],
     storyFlags: ["intro_awake"],
-    ash: 25
+    ash: 0,
+    upgrades: createDefaultUpgrades()
   };
 }
 
@@ -1094,14 +1639,15 @@ function pickSideRooms(seed) {
   return picked;
 }
 
-function createRun(seed = Math.floor(Math.random() * 2147483647)) {
+function createRun(seed = Math.floor(Math.random() * 2147483647), meta = createDefaultMeta()) {
   const random = mulberry32(seed);
   const relicIds = Object.keys(RELICS);
+  const growth = derivePlayerGrowth(meta);
   return {
     seed,
     currentRoom: "hub_sanctuary",
-    health: 100,
-    maxHealth: 100,
+    health: growth.maxHealth,
+    maxHealth: growth.maxHealth,
     gloom: 0,
     relics: [pickFrom(relicIds, random)],
     visitedRooms: ["hub_sanctuary"],
@@ -1109,7 +1655,7 @@ function createRun(seed = Math.floor(Math.random() * 2147483647)) {
     claimedRewards: [],
     activeSideRooms: pickSideRooms(seed),
     temporaryCurrency: 0,
-    currentWeapon: "fallen_greatblade",
+    currentWeapon: meta.unlockedWeapons[0] || "fallen_greatblade",
     oath: "execution",
     playerSpawnTag: "start"
   };
@@ -1131,12 +1677,14 @@ function sanitizeMeta(raw) {
   }
   meta.memoryShards = Array.isArray(raw.memoryShards) ? [...new Set(raw.memoryShards)] : [];
   meta.storyFlags = Array.isArray(raw.storyFlags) ? [...new Set(raw.storyFlags)] : ["intro_awake"];
-  meta.ash = Number.isFinite(raw.ash) ? Math.max(0, Math.floor(raw.ash)) : 25;
+  meta.ash = Number.isFinite(raw.ash) ? Math.max(0, Math.floor(raw.ash)) : 0;
+  meta.upgrades = sanitizeUpgradeState(raw.upgrades);
   return meta;
 }
 
 function sanitizeRun(raw, meta) {
-  const run = createRun();
+  const growth = derivePlayerGrowth(meta);
+  const run = createRun(undefined, meta);
   if (!raw || typeof raw !== "object") {
     run.currentWeapon = meta.unlockedWeapons[0] || "fallen_greatblade";
     return run;
@@ -1144,12 +1692,12 @@ function sanitizeRun(raw, meta) {
 
   run.seed = Number.isFinite(raw.seed) ? raw.seed : run.seed;
   run.currentRoom = ROOMS[raw.currentRoom] ? raw.currentRoom : "hub_sanctuary";
-  run.health = Number.isFinite(raw.health) ? clamp(raw.health, 0, 999) : run.health;
-  run.maxHealth = Number.isFinite(raw.maxHealth) ? clamp(raw.maxHealth, 1, 999) : run.maxHealth;
+  run.maxHealth = growth.maxHealth;
+  run.health = Number.isFinite(raw.health) ? clamp(raw.health, 0, growth.maxHealth) : run.health;
   run.gloom = Number.isFinite(raw.gloom) ? clamp(raw.gloom, 0, 100) : 0;
   run.relics = Array.isArray(raw.relics) ? raw.relics.filter((id) => RELICS[id]) : [];
   if (!run.relics.length) {
-    run.relics = createRun(run.seed).relics;
+    run.relics = createRun(run.seed, meta).relics;
   }
   run.visitedRooms = Array.isArray(raw.visitedRooms)
     ? raw.visitedRooms.filter((id) => ROOMS[id])
@@ -1180,20 +1728,45 @@ function sanitizeRun(raw, meta) {
   return run;
 }
 
+function isMeaningfulSavedRun(rawRun, run, meta) {
+  if (!rawRun || typeof rawRun !== "object") {
+    return false;
+  }
+  const baseline = createRun(run.seed, meta);
+  const listChanged = (left, right) => (
+    left.length !== right.length ||
+    left.some((value, index) => value !== right[index])
+  );
+  return (
+    run.currentRoom !== baseline.currentRoom ||
+    run.playerSpawnTag !== baseline.playerSpawnTag ||
+    run.health !== baseline.health ||
+    run.gloom !== baseline.gloom ||
+    run.currentWeapon !== baseline.currentWeapon ||
+    run.oath !== baseline.oath ||
+    listChanged(run.visitedRooms, baseline.visitedRooms) ||
+    listChanged(run.relics, baseline.relics) ||
+    run.defeatedBosses.length > 0 ||
+    run.claimedRewards.length > 0 ||
+    run.temporaryCurrency > 0
+  );
+}
+
 function loadSave() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const meta = createDefaultMeta();
-      const run = createRun();
-      return { meta, run };
+      const run = createRun(undefined, meta);
+      return { meta, run, hasSave: false };
     }
     const parsed = JSON.parse(raw);
     const meta = sanitizeMeta(parsed.meta);
     const run = sanitizeRun(parsed.run, meta);
-    return { meta, run };
+    return { meta, run, hasSave: isMeaningfulSavedRun(parsed.run, run, meta) };
   } catch {
-    return { meta: createDefaultMeta(), run: createRun() };
+    const meta = createDefaultMeta();
+    return { meta, run: createRun(undefined, meta), hasSave: false };
   }
 }
 
@@ -1209,6 +1782,46 @@ function saveGame() {
   }
 }
 
+function resetGameProgress() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore storage removal failures.
+  }
+  const meta = createDefaultMeta();
+  const run = createRun(undefined, meta);
+  game.meta = meta;
+  game.run = run;
+  game.hasSave = false;
+  game.room = null;
+  game.roomLayout = null;
+  game.player = createPlayer();
+  game.enemies = [];
+  game.projectiles = [];
+  game.effects = [];
+  game.interactables = [];
+  game.victory = false;
+  game.message = "";
+  game.messageToken = null;
+  game.messageTime = 0;
+  game.statsPulse = 0;
+  game.hitstop = 0;
+  game.title.activePanel = "chronicle";
+  game.title.selectedIndex = 1;
+  game.title.time = 0;
+  game.screen = "title";
+  game.camera = {
+    trauma: 0,
+    offsetX: 0,
+    offsetY: 0,
+    flash: 0,
+    flashColor: "rgba(227,219,199,0.22)"
+  };
+  syncScreenState();
+  renderTitleOverlay();
+  applyLanguage();
+}
+
 function createPlayer() {
   return {
     kind: "player",
@@ -1218,7 +1831,7 @@ function createPlayer() {
     h: 110,
     vx: 0,
     vy: 0,
-    speed: 320,
+    speed: PLAYER_BASE_STATS.speed,
     facing: 1,
     onGround: false,
     dashTime: 0,
@@ -1426,11 +2039,12 @@ function isRoomActive(roomId) {
 function startNewRun(seed = Math.floor(Math.random() * 2147483647)) {
   const relicIds = Object.keys(RELICS);
   const random = mulberry32(seed);
+  const growth = derivePlayerGrowth(game.meta);
   game.run = {
     seed,
     currentRoom: "hub_sanctuary",
-    health: 100,
-    maxHealth: 100,
+    health: growth.maxHealth,
+    maxHealth: growth.maxHealth,
     gloom: 0,
     relics: [pickFrom(relicIds, random)],
     visitedRooms: ["hub_sanctuary"],
@@ -1451,6 +2065,8 @@ const initialState = loadSave();
 const game = {
   meta: initialState.meta,
   run: initialState.run,
+  hasSave: initialState.hasSave,
+  screen: "title",
   room: null,
   roomLayout: null,
   player: createPlayer(),
@@ -1464,6 +2080,11 @@ const game = {
   messageTime: 0,
   statsPulse: 0,
   hitstop: 0,
+  title: {
+    activePanel: "chronicle",
+    selectedIndex: initialState.hasSave ? 0 : 1,
+    time: 0
+  },
   camera: {
     trauma: 0,
     offsetX: 0,
@@ -1474,6 +2095,237 @@ const game = {
 };
 
 window.blackHaloGame = game;
+
+function syncScreenState() {
+  const titleActive = game.screen !== "play";
+  document.body.classList.toggle("screen-title", titleActive);
+  document.body.classList.toggle("screen-play", !titleActive);
+  shellEl?.classList.toggle("title-mode", titleActive);
+  titleOverlayEl?.setAttribute("aria-hidden", String(!titleActive));
+}
+
+function activateTitleAction(action) {
+  if (!game?.title) {
+    return;
+  }
+  if (action === "continue") {
+    if (!game.hasSave) {
+      return;
+    }
+    beginGameplay("continue");
+    return;
+  }
+  if (action === "new_run") {
+    beginGameplay("new");
+    return;
+  }
+  if (action === "chronicle" || action === "armory") {
+    game.title.activePanel = action;
+    setTitleSelection(TITLE_ACTION_ORDER.indexOf(action));
+    renderTitleOverlay();
+    return;
+  }
+  if (action === "reset_game") {
+    if (window.confirm(t("title_reset_prompt"))) {
+      resetGameProgress();
+    }
+  }
+}
+
+function beginGameplay(mode) {
+  game.screen = "play";
+  syncScreenState();
+  if (mode === "new") {
+    game.hasSave = true;
+    startNewRun();
+  } else {
+    loadRoom(game.run.currentRoom || "hub_sanctuary", game.run.playerSpawnTag || "start");
+    pushMessage({ key: "msg_continue_run" });
+    updateStats();
+  }
+  applyLanguage();
+}
+
+function updateTitle(dt) {
+  game.title.time += dt;
+  if (hasUiControlFocus()) {
+    return;
+  }
+  if (wasPressed("ArrowUp")) {
+    moveTitleSelection(-1);
+    renderTitleOverlay();
+  }
+  if (wasPressed("ArrowDown")) {
+    moveTitleSelection(1);
+    renderTitleOverlay();
+  }
+  if (wasPressed("ArrowLeft") || wasPressed("ArrowRight")) {
+    game.title.activePanel = game.title.activePanel === "chronicle" ? "armory" : "chronicle";
+    renderTitleOverlay();
+  }
+  if (wasPressed("Enter") || wasPressed("KeyZ") || wasPressed("Space")) {
+    activateTitleAction(TITLE_ACTION_ORDER[game.title.selectedIndex]);
+  }
+  if (wasPressed(...CONTROLS.newRun)) {
+    beginGameplay("new");
+  }
+}
+
+titleActionButtons.forEach((button, index) => {
+  button.addEventListener("mouseenter", () => {
+    setTitleSelection(index);
+    renderTitleOverlay();
+  });
+  button.addEventListener("focus", () => {
+    setTitleSelection(index);
+    renderTitleOverlay();
+  });
+  button.addEventListener("click", () => {
+    activateTitleAction(button.dataset.titleAction);
+  });
+});
+
+function getPlayerGrowth() {
+  return derivePlayerGrowth(game.meta);
+}
+
+function applyProgressionToRun(options = {}) {
+  if (!game.run) {
+    return;
+  }
+  const growth = getPlayerGrowth();
+  const previousMax = game.run.maxHealth || growth.maxHealth;
+  game.run.maxHealth = growth.maxHealth;
+  if (options.fullHeal) {
+    game.run.health = growth.maxHealth;
+  } else if (options.healDelta) {
+    game.run.health = clamp(game.run.health + Math.max(0, growth.maxHealth - previousMax), 0, growth.maxHealth);
+  } else {
+    game.run.health = clamp(game.run.health, 0, growth.maxHealth);
+  }
+  if (game.player) {
+    game.player.speed = growth.speed;
+  }
+}
+
+function getNextTrackUpgrade(track) {
+  const level = game.meta.upgrades[track] || 0;
+  return UPGRADE_PATHS[track][level] || null;
+}
+
+function getNextMobilityUpgrade() {
+  return MOBILITY_UPGRADES.find((upgrade) => {
+    if (upgrade.requires && !hasAbility(upgrade.requires)) {
+      return false;
+    }
+    return !hasAbility(upgrade.abilityId);
+  }) || null;
+}
+
+function formatUpgradeRank(rank) {
+  const numerals = ["I", "II", "III", "IV", "V"];
+  return currentLanguage === "ko" ? String(rank) : (numerals[rank - 1] || String(rank));
+}
+
+function formatGrowthSummary() {
+  return t("growth_summary", {
+    vigor: game.meta.upgrades.vigor,
+    might: game.meta.upgrades.might,
+    focus: game.meta.upgrades.focus
+  });
+}
+
+function buildTrackUpgradeLabel(track) {
+  const next = getNextTrackUpgrade(track);
+  const name = t(`upgrade_${track}_name`);
+  if (!next) {
+    return t("label_upgrade_maxed", { name });
+  }
+  if (track === "vigor") {
+    return t("label_vigor_next", {
+      amount: next.healthBonus,
+      cost: next.cost
+    });
+  }
+  if (track === "might") {
+    return t("label_might_next", {
+      rank: formatUpgradeRank((game.meta.upgrades.might || 0) + 1),
+      cost: next.cost
+    });
+  }
+  return t("label_focus_next", {
+    rank: formatUpgradeRank((game.meta.upgrades.focus || 0) + 1),
+    cost: next.cost
+  });
+}
+
+function buildMobilityUpgradeLabel() {
+  const next = getNextMobilityUpgrade();
+  const name = t("upgrade_mobility_name");
+  if (!next) {
+    return t("label_upgrade_maxed", { name });
+  }
+  return t("label_mobility_next", {
+    ability: getAbilityName(next.abilityId),
+    cost: next.cost
+  });
+}
+
+function spendAsh(cost) {
+  if (game.meta.ash < cost) {
+    pushMessage({ key: "msg_need_ash", vars: { cost } });
+    return false;
+  }
+  game.meta.ash -= cost;
+  return true;
+}
+
+function buyTrackUpgrade(track) {
+  const next = getNextTrackUpgrade(track);
+  const name = t(`upgrade_${track}_name`);
+  if (!next) {
+    pushMessage({ key: "msg_upgrade_maxed", vars: { name } });
+    return;
+  }
+  if (!spendAsh(next.cost)) {
+    return;
+  }
+  game.meta.upgrades[track] += 1;
+  applyProgressionToRun({ healDelta: track === "vigor" });
+  buildInteractionsForRoom(game.room);
+  updateStats();
+  saveGame();
+
+  const growth = getPlayerGrowth();
+  if (track === "vigor") {
+    pushMessage({ key: "msg_upgrade_vigor", vars: { value: growth.maxHealth } });
+  } else if (track === "might") {
+    pushMessage({
+      key: "msg_upgrade_might",
+      vars: { percent: Math.round((growth.damageMultiplier - 1) * 100) }
+    });
+  } else {
+    pushMessage({ key: "msg_upgrade_focus", vars: { value: growth.skillCost } });
+  }
+}
+
+function buyMobilityUpgrade() {
+  const next = getNextMobilityUpgrade();
+  const name = t("upgrade_mobility_name");
+  if (!next) {
+    pushMessage({ key: "msg_upgrade_maxed", vars: { name } });
+    return;
+  }
+  if (!spendAsh(next.cost)) {
+    return;
+  }
+  grantAbility(next.abilityId);
+  applyProgressionToRun();
+  buildInteractionsForRoom(game.room);
+  updateStats();
+  saveGame();
+  pushMessage({ key: "msg_upgrade_mobility", vars: { ability: getAbilityName(next.abilityId) } });
+}
 
 function pushMessage(text, duration = 4.2) {
   game.message = resolveMessageToken(text);
@@ -1542,6 +2394,7 @@ function loadRoom(roomId, spawnTag = "start") {
   game.player.doubleJumpReady = hasAbility("black_wing");
   game.player.attackState = null;
   game.player.afterimageTimer = 0;
+  applyProgressionToRun();
 
   const encounterSpots = encounterPositions(room.layout);
   if (room.boss) {
@@ -1603,28 +2456,32 @@ function buildInteractionsForRoom(room) {
       label: localizeLabel("Mara Bellwright: Cycle weapon")
     });
     game.interactables.push({
-      type: "archive",
-      x: 1190,
-      y: 650,
+      type: "vigor_upgrade",
+      x: 336,
+      y: 528,
       radius: 80,
-      label: localizeLabel("Brother Niv: Hear memory")
+      label: buildTrackUpgradeLabel("vigor")
     });
     game.interactables.push({
-      type: "oath",
+      type: "might_upgrade",
       x: 790,
       y: 650,
       radius: 80,
-      label: localizeLabel("Sir Joren: Cycle oath")
+      label: buildTrackUpgradeLabel("might")
     });
-  }
-
-  if (room.id === "mirror_choir" && !hasAbility("black_wing")) {
     game.interactables.push({
-      type: "altar",
-      x: 1190,
-      y: 290,
-      radius: 90,
-      label: localizeLabel("Claim Black Wing")
+      type: "focus_upgrade",
+      x: 1188,
+      y: 650,
+      radius: 80,
+      label: buildTrackUpgradeLabel("focus")
+    });
+    game.interactables.push({
+      type: "mobility_upgrade",
+      x: 1226,
+      y: 498,
+      radius: 80,
+      label: buildMobilityUpgradeLabel()
     });
   }
 
@@ -1647,6 +2504,7 @@ function updateStats() {
     `<div><strong>${t("stat_weapon")}</strong><span>${getWeaponName(game.run.currentWeapon)}</span></div>`,
     `<div><strong>${t("stat_oath")}</strong><span>${getOathName(game.run.oath)}</span></div>`,
     `<div><strong>${t("stat_abilities")}</strong><span>${formatAbilitySummary()}</span></div>`,
+    `<div><strong>${t("stat_growth")}</strong><span>${formatGrowthSummary()}</span></div>`,
     `<div><strong>${t("stat_relic")}</strong><span>${game.run.relics[0] ? getRelicName(game.run.relics[0]) : t("stat_none")}</span></div>`
   ].join("");
 }
@@ -1690,6 +2548,28 @@ function updateCamera(dt) {
   game.camera.offsetY = randomRange(-1, 1) * shake * 16;
 }
 
+function getAttackMotion(attack, overrideElapsed = null) {
+  if (!attack) {
+    return {
+      elapsed: 0,
+      startupProgress: 0,
+      swingProgress: 0,
+      totalProgress: 0,
+      inStartup: false
+    };
+  }
+  const elapsed = overrideElapsed === null ? attack.elapsed : overrideElapsed;
+  const startup = attack.startup || 0;
+  const swingDuration = attack.swingDuration || Math.max(0.001, attack.duration - startup);
+  return {
+    elapsed,
+    startupProgress: startup > 0 ? clamp01(elapsed / startup) : 1,
+    swingProgress: clamp01((elapsed - startup) / swingDuration),
+    totalProgress: clamp01(elapsed / attack.duration),
+    inStartup: elapsed < startup
+  };
+}
+
 function attackActionName(kind) {
   if (kind === "heavy") {
     return "heavy";
@@ -1700,30 +2580,38 @@ function attackActionName(kind) {
   return "attack";
 }
 
-function getPlayerWeaponPose(player, overrideProgress = null) {
+function getPlayerWeaponPose(player, overrideElapsed = null) {
   const weapon = WEAPONS[game.run.currentWeapon];
   const attack = player.attackState;
   const baseX = player.x + player.facing * weapon.gripOffset.x;
   const baseY = player.y + player.h * 0.5 + weapon.gripOffset.y;
 
-  let angle = angleForFacing(-0.26, player.facing);
+  const idleAngle = angleForFacing(-0.26, player.facing);
+  let angle = idleAngle;
   let progress = 0;
   let kind = "idle";
+  let totalProgress = 0;
+  let inStartup = false;
 
   if (attack) {
     kind = attack.kind;
-    progress = overrideProgress === null
-      ? clamp01(attack.elapsed / attack.duration)
-      : clamp01(overrideProgress);
+    const motion = getAttackMotion(attack, overrideElapsed);
+    progress = motion.swingProgress;
+    totalProgress = motion.totalProgress;
+    inStartup = motion.inStartup;
     const profile = attack.profile;
-    const sweep = easeInOutCubic(progress);
-    const settle = easeOutCubic(progress);
-    angle = lerp(
-      angleForFacing(profile.startAngle, player.facing),
-      angleForFacing(profile.endAngle, player.facing),
-      sweep
-    );
-    angle += player.facing * Math.sin(settle * Math.PI) * (kind === "light" ? 0.06 : 0.12);
+    if (motion.inStartup) {
+      angle = lerp(idleAngle, angleForFacing(profile.startAngle, player.facing), easeOutCubic(motion.startupProgress));
+    } else {
+      const sweep = easeInOutCubic(progress);
+      const settle = easeOutCubic(progress);
+      angle = lerp(
+        angleForFacing(profile.startAngle, player.facing),
+        angleForFacing(profile.endAngle, player.facing),
+        sweep
+      );
+      angle += player.facing * Math.sin(settle * Math.PI) * (kind === "light" ? 0.06 : 0.12);
+    }
   } else if (player.action === "parry") {
     angle = angleForFacing(-0.72, player.facing);
   } else if (player.action === "dash") {
@@ -1736,6 +2624,8 @@ function getPlayerWeaponPose(player, overrideProgress = null) {
     weapon,
     kind,
     progress,
+    totalProgress,
+    inStartup,
     angle,
     hiltX: baseX,
     hiltY: baseY,
@@ -1747,15 +2637,16 @@ function getPlayerWeaponPose(player, overrideProgress = null) {
   };
 }
 
-function getLocalWeaponAngle(player, overrideProgress = null) {
+function getLocalWeaponAngle(player, overrideElapsed = null) {
   const attack = player.attackState;
   if (attack) {
-    const progress = overrideProgress === null
-      ? clamp01(attack.elapsed / attack.duration)
-      : clamp01(overrideProgress);
-    const sweep = easeInOutCubic(progress);
+    const motion = getAttackMotion(attack, overrideElapsed);
+    if (motion.inStartup) {
+      return lerp(-0.26, attack.profile.startAngle, easeOutCubic(motion.startupProgress));
+    }
+    const sweep = easeInOutCubic(motion.swingProgress);
     return lerp(attack.profile.startAngle, attack.profile.endAngle, sweep)
-      + Math.sin(easeOutCubic(progress) * Math.PI) * (attack.kind === "light" ? 0.06 : 0.12);
+      + Math.sin(easeOutCubic(motion.swingProgress) * Math.PI) * (attack.kind === "light" ? 0.06 : 0.12);
   }
   if (player.action === "parry") {
     return -0.72;
@@ -1834,7 +2725,8 @@ function sampleBladeSweepHit(previousPose, currentPose, enemy, bladeRadius) {
 }
 
 function gainGloom(amount) {
-  game.run.gloom = clamp(game.run.gloom + amount, 0, 100);
+  const growth = getPlayerGrowth();
+  game.run.gloom = clamp(game.run.gloom + amount * growth.gloomMultiplier, 0, 100);
 }
 
 function resolvePlayerAttackHit(enemy, attack, hitPoint) {
@@ -1875,19 +2767,25 @@ function startPlayerAttack(kind) {
   const profile = weapon.profiles[kind];
   const oath = OATHS[game.run.oath];
   const relicMods = getActiveRelicModifiers();
+  const growth = getPlayerGrowth();
 
   let damage = kind === "heavy" ? weapon.heavyDamage : weapon.baseDamage;
   if (kind === "heavy") {
     damage += relicMods.heavyBonus || 0;
   }
   if (kind === "skill") {
-    damage = weapon.heavyDamage + 16 + (relicMods.skillBonus || 0);
+    damage = weapon.heavyDamage + 10 + (relicMods.skillBonus || 0);
   }
-  damage *= oath.damageMultiplier;
+  damage *= oath.damageMultiplier * growth.damageMultiplier;
+
+  const startup = profile.startup || 0;
+  const totalDuration = startup + profile.duration;
 
   player.attackState = {
     kind,
-    duration: profile.duration,
+    duration: totalDuration,
+    startup,
+    swingDuration: profile.duration,
     elapsed: 0,
     damage,
     profile,
@@ -1898,10 +2796,10 @@ function startPlayerAttack(kind) {
   player.action = attackActionName(kind);
   player.attackFlash = kind === "skill" ? 0.28 : kind === "heavy" ? 0.22 : 0.16;
   if (kind === "skill") {
-    player.skillTime = profile.duration;
+    player.skillTime = totalDuration;
     player.attackTime = 0;
   } else {
-    player.attackTime = profile.duration;
+    player.attackTime = totalDuration;
     player.skillTime = 0;
   }
 
@@ -1921,21 +2819,26 @@ function updatePlayerAttack(dt) {
     return;
   }
 
-  const previousProgress = clamp01(attack.elapsed / attack.duration);
-  const previousPose = getPlayerWeaponPose(player, previousProgress);
+  const previousElapsed = attack.elapsed;
+  const previousMotion = getAttackMotion(attack, previousElapsed);
+  const previousPose = getPlayerWeaponPose(player, previousElapsed);
   attack.elapsed = Math.min(attack.duration, attack.elapsed + dt);
   attack.trailTimer = Math.max(0, attack.trailTimer - dt);
   attack.afterimageTimer = Math.max(0, attack.afterimageTimer - dt);
 
-  const progress = clamp01(attack.elapsed / attack.duration);
-  const currentPose = getPlayerWeaponPose(player, progress);
+  const currentMotion = getAttackMotion(attack, attack.elapsed);
+  const currentPose = getPlayerWeaponPose(player, attack.elapsed);
   const activeStart = attack.profile.activeStart;
   const activeEnd = attack.profile.activeEnd;
-  const activeWindowTouched = previousProgress <= activeEnd && progress >= activeStart;
-  const activeNow = progress >= activeStart && progress <= activeEnd;
+  const activeWindowTouched = !currentMotion.inStartup
+    && previousMotion.swingProgress <= activeEnd
+    && currentMotion.swingProgress >= activeStart;
+  const activeNow = !currentMotion.inStartup
+    && currentMotion.swingProgress >= activeStart
+    && currentMotion.swingProgress <= activeEnd;
 
   if (activeNow && attack.trailTimer <= 0) {
-    spawnWeaponTrail(currentPose, attack, 0.95 - progress * 0.22);
+    spawnWeaponTrail(currentPose, attack, 0.95 - currentMotion.totalProgress * 0.22);
     attack.trailTimer = attack.kind === "light" ? 0.018 : 0.022;
   }
 
@@ -1967,7 +2870,7 @@ function updatePlayerAttack(dt) {
     }
   }
 
-  if (progress >= 1) {
+  if (attack.elapsed >= attack.duration) {
     player.attackState = null;
   }
 }
@@ -1977,6 +2880,9 @@ function updatePlayer(dt) {
   const weapon = WEAPONS[game.run.currentWeapon];
   const oath = OATHS[game.run.oath];
   const relicMods = getActiveRelicModifiers();
+  const growth = getPlayerGrowth();
+
+  player.speed = growth.speed;
 
   player.dashTime = Math.max(0, player.dashTime - dt);
   player.dashCooldown = Math.max(0, player.dashCooldown - dt);
@@ -2025,14 +2931,19 @@ function updatePlayer(dt) {
     player.vx = player.facing * 920;
     player.action = "dash";
   } else if (player.attackState) {
-    const attackProgress = clamp01(player.attackState.elapsed / player.attackState.duration);
+    const attackMotion = getAttackMotion(player.attackState);
     const drive = player.attackState.kind === "light"
       ? 120
       : player.attackState.kind === "heavy"
         ? 190
         : 230;
-    const lunge = Math.sin(attackProgress * Math.PI) * drive;
-    player.vx = player.facing * lunge;
+    if (attackMotion.inStartup) {
+      const brace = player.attackState.kind === "light" ? 56 : player.attackState.kind === "heavy" ? 84 : 72;
+      player.vx = -player.facing * brace * (1 - attackMotion.startupProgress);
+    } else {
+      const lunge = Math.sin(attackMotion.swingProgress * Math.PI) * drive;
+      player.vx = player.facing * lunge;
+    }
   } else if (player.attackTime > 0 || player.skillTime > 0) {
     player.vx = lerp(player.vx, 0, 0.3);
   } else {
@@ -2070,8 +2981,8 @@ function updatePlayer(dt) {
       player.skillTime = 0.3;
       player.invulnerable = 0.18;
       player.action = "dash";
-    } else if (game.run.gloom >= 30) {
-      game.run.gloom = Math.max(0, game.run.gloom - 30);
+    } else if (game.run.gloom >= growth.skillCost) {
+      game.run.gloom = Math.max(0, game.run.gloom - growth.skillCost);
       startPlayerAttack("skill");
       const direction = player.facing;
       createProjectile(
@@ -2081,7 +2992,7 @@ function updatePlayer(dt) {
         0,
         28,
         COLORS.cyan,
-        weapon.heavyDamage + 12 + (relicMods.skillBonus || 0),
+        (weapon.heavyDamage + 10 + (relicMods.skillBonus || 0)) * oath.damageMultiplier * growth.damageMultiplier,
         "player_skill",
         0.55
       );
@@ -2309,7 +3220,7 @@ function chooseEnemyAttack(enemy, dx, dy) {
         }
         return true;
       }
-      if (range <= 162 && height < 110) {
+      if (range <= 220 && height < 130) {
         queueEnemyAttack(enemy, "aurex_cleave", {
           windup: 0.5,
           recover: 0.95,
@@ -2359,7 +3270,7 @@ function chooseEnemyAttack(enemy, dx, dy) {
       return true;
     }
 
-    if (range <= 176 && height < 110) {
+    if (range <= 236 && height < 120) {
       queueEnemyAttack(enemy, "seraph_cleave", {
         windup: 0.42,
         recover: 0.86,
@@ -2376,7 +3287,7 @@ function chooseEnemyAttack(enemy, dx, dy) {
 
   switch (enemy.id) {
     case "shield_paladin":
-      if (range <= 138 && height < 96) {
+      if (range <= 184 && height < 110) {
         queueEnemyAttack(enemy, "shield_bash", {
           windup: 0.58,
           recover: 1.05,
@@ -2390,7 +3301,7 @@ function chooseEnemyAttack(enemy, dx, dy) {
       }
       break;
     case "lancer":
-      if (range <= 228 && range >= 70 && height < 92) {
+      if (range <= 310 && range >= 80 && height < 100) {
         queueEnemyAttack(enemy, "sunlance_thrust", {
           windup: 0.46,
           recover: 0.96,
@@ -2404,8 +3315,8 @@ function chooseEnemyAttack(enemy, dx, dy) {
       }
       break;
     case "choir_adept":
-      if (range <= 480 && range >= 140 && height < 220) {
-        const useArc = range > 280 || game.player.y + 20 < enemy.y;
+      if (range <= 620 && range >= 120 && height < 240) {
+        const useArc = range > 320 || game.player.y + 20 < enemy.y;
         queueEnemyAttack(enemy, useArc ? "choir_arc" : "choir_direct", {
           windup: useArc ? 0.78 : 0.66,
           recover: useArc ? 1.28 : 1.12,
@@ -2419,7 +3330,7 @@ function chooseEnemyAttack(enemy, dx, dy) {
       }
       break;
     case "inquisitor":
-      if (range <= 260 && range >= 86 && height < 108) {
+      if (range <= 340 && range >= 72 && height < 124) {
         queueEnemyAttack(enemy, "inquisitor_lash", {
           windup: 0.54,
           recover: 1.04,
@@ -2433,7 +3344,7 @@ function chooseEnemyAttack(enemy, dx, dy) {
       }
       break;
     case "blessed_hound":
-      if (range <= 230 && range >= 50 && height < 92 && enemy.onGround) {
+      if (range <= 320 && range >= 40 && height < 96 && enemy.onGround) {
         queueEnemyAttack(enemy, "hound_pounce", {
           windup: 0.38,
           recover: 1.18,
@@ -2496,10 +3407,10 @@ function updateEnemyLeap(enemy, dt) {
     resolveEnemyStrike(enemy, {
       ax: enemy.x - enemy.facing * 12,
       ay: enemy.y - 18,
-      bx: enemy.x + enemy.facing * 92,
+      bx: enemy.x + enemy.facing * 126,
       by: enemy.y - 12,
-      radius: 60,
-      damage: enemy.damage + 3,
+      radius: 74,
+      damage: enemy.damage + 4,
       parryable: true,
       parryGloom: 16
     });
@@ -2586,9 +3497,9 @@ function executeEnemyAttack(enemy) {
       resolveEnemyStrike(enemy, {
         ax: enemy.x + enemy.facing * 24,
         ay: enemy.y - 40,
-        bx: enemy.x + enemy.facing * 120,
+        bx: enemy.x + enemy.facing * 162,
         by: enemy.y - 36,
-        radius: 44,
+        radius: 58,
         damage: enemy.damage + 2,
         parryable: true
       });
@@ -2598,9 +3509,9 @@ function executeEnemyAttack(enemy) {
       resolveEnemyStrike(enemy, {
         ax: enemy.x + enemy.facing * 28,
         ay: enemy.y - 42,
-        bx: enemy.x + enemy.facing * 206,
+        bx: enemy.x + enemy.facing * 280,
         by: enemy.y - 42,
-        radius: 24,
+        radius: 30,
         damage: enemy.damage + 3,
         parryable: true
       });
@@ -2610,14 +3521,14 @@ function executeEnemyAttack(enemy) {
       createProjectile(
         enemy.x + enemy.facing * 36,
         enemy.y - 64,
-        enemy.facing * 460,
+        enemy.facing * 500,
         0,
-        16,
+        18,
         COLORS.cyan,
         enemy.damage,
         "enemy",
-        0.82,
-        { maxDistance: 320, shape: "direct" }
+        0.9,
+        { maxDistance: 420, shape: "direct" }
       );
       addEffect({ type: "choir_cast", x: enemy.x + enemy.facing * 36, y: enemy.y - 68, life: 0.28 });
       break;
@@ -2625,14 +3536,14 @@ function executeEnemyAttack(enemy) {
       createProjectile(
         enemy.x + enemy.facing * 30,
         enemy.y - 70,
-        enemy.facing * 260,
-        -420,
+        enemy.facing * 300,
+        -460,
         15,
         COLORS.ivory,
         enemy.damage + 2,
         "enemy",
-        1.22,
-        { gravity: 820, maxDistance: 430, shape: "arc" }
+        1.28,
+        { gravity: 820, maxDistance: 540, shape: "arc" }
       );
       addEffect({ type: "choir_cast", x: enemy.x + enemy.facing * 30, y: enemy.y - 72, life: 0.32 });
       break;
@@ -2640,21 +3551,21 @@ function executeEnemyAttack(enemy) {
       createProjectile(
         enemy.x + enemy.facing * 40,
         enemy.y - 50,
-        enemy.facing * 580,
+        enemy.facing * 660,
         0,
-        18,
+        20,
         COLORS.crimson,
         enemy.damage + 2,
         "enemy",
-        0.5,
-        { maxDistance: 250, shape: "direct" }
+        0.56,
+        { maxDistance: 330, shape: "direct" }
       );
       addEffect({ type: "cross_cut", x: enemy.x + enemy.facing * 72, y: enemy.y - 52, facing: enemy.facing, life: 0.18 });
       break;
     case "hound_pounce":
-      enemy.vx = enemy.facing * 360;
+      enemy.vx = enemy.facing * 460;
       enemy.vy = -560;
-      enemy.leapTime = 0.6;
+      enemy.leapTime = 0.72;
       enemy.leapImpactPending = true;
       finishEnemyAttack(enemy);
       return;
@@ -2662,9 +3573,9 @@ function executeEnemyAttack(enemy) {
       resolveEnemyStrike(enemy, {
         ax: enemy.x + enemy.facing * 30,
         ay: enemy.y - 48,
-        bx: enemy.x + enemy.facing * 148,
+        bx: enemy.x + enemy.facing * 190,
         by: enemy.y - 40,
-        radius: 52,
+        radius: 64,
         damage: enemy.damage + 4,
         parryable: true,
         parryGloom: 20
@@ -2677,10 +3588,10 @@ function executeEnemyAttack(enemy) {
       resolveEnemyStrike(enemy, {
         ax: enemy.x + enemy.facing * 36,
         ay: enemy.y - 52,
-        bx: enemy.x + enemy.facing * 186,
+        bx: enemy.x + enemy.facing * 248,
         by: enemy.y - 44,
-        radius: 58,
-        damage: enemy.damage + 6,
+        radius: 72,
+        damage: enemy.damage + 7,
         parryable: true,
         parryGloom: 22
       });
@@ -2690,11 +3601,11 @@ function executeEnemyAttack(enemy) {
       addEffect({ type: "halo_burst", x: enemy.x, y: enemy.y - 90, life: 0.5 });
       addCameraTrauma(0.12);
       resolveEnemyStrike(enemy, {
-        ax: enemy.x - 180,
+        ax: enemy.x - 220,
         ay: enemy.y - 60,
-        bx: enemy.x + 180,
+        bx: enemy.x + 220,
         by: enemy.y - 60,
-        radius: 96,
+        radius: 112,
         damage: enemy.damage + 9,
         parryable: false
       });
@@ -2704,9 +3615,9 @@ function executeEnemyAttack(enemy) {
       resolveEnemyStrike(enemy, {
         ax: enemy.x + enemy.facing * 34,
         ay: enemy.y - 50,
-        bx: enemy.x + enemy.facing * 180,
+        bx: enemy.x + enemy.facing * 220,
         by: enemy.y - 40,
-        radius: 34,
+        radius: 44,
         damage: enemy.damage + 3,
         parryable: true,
         parryGloom: 22
@@ -2719,9 +3630,9 @@ function executeEnemyAttack(enemy) {
       resolveEnemyStrike(enemy, {
         ax: enemy.x + enemy.facing * 30,
         ay: enemy.y - 58,
-        bx: enemy.x + enemy.facing * 190,
+        bx: enemy.x + enemy.facing * 250,
         by: enemy.y - 42,
-        radius: 42,
+        radius: 54,
         damage: enemy.damage + 5,
         parryable: true,
         parryGloom: 24
@@ -2739,7 +3650,7 @@ function executeEnemyAttack(enemy) {
         enemy.damage + 5,
         "enemy",
         0.92,
-        { maxDistance: 360, shape: "direct" }
+        { maxDistance: 450, shape: "direct" }
       );
       createProjectile(
         enemy.x + enemy.facing * 30,
@@ -2751,7 +3662,7 @@ function executeEnemyAttack(enemy) {
         enemy.damage + 4,
         "enemy",
         1.08,
-        { gravity: 780, maxDistance: 390, shape: "arc" }
+        { gravity: 780, maxDistance: 460, shape: "arc" }
       );
       addEffect({ type: "cross_cut", x: enemy.x + enemy.facing * 76, y: enemy.y - 56, facing: enemy.facing, life: 0.26 });
       enemy.specialCooldown = enemy.phases[enemy.phaseIndex].specialCooldown;
@@ -2761,11 +3672,11 @@ function executeEnemyAttack(enemy) {
       flashScreen("rgba(122,215,224,0.18)", 0.08);
       addCameraTrauma(0.14);
       resolveEnemyStrike(enemy, {
-        ax: enemy.x - 200,
+        ax: enemy.x - 230,
         ay: enemy.y - 70,
-        bx: enemy.x + 200,
+        bx: enemy.x + 230,
         by: enemy.y - 70,
-        radius: 110,
+        radius: 122,
         damage: enemy.damage + 10,
         parryable: false
       });
@@ -2877,16 +3788,14 @@ function updateEffects(dt) {
 }
 
 function handleEnemyDeath(enemy) {
-  game.meta.ash += enemy.isBoss ? 30 : 5;
+  const ashReward = enemy.isBoss ? (enemy.id === "seraph_vale" ? 12 : 9) : 1;
+  game.meta.ash += ashReward;
   if (enemy.isBoss) {
     if (!game.run.defeatedBosses.includes(game.room.id)) {
       game.run.defeatedBosses.push(game.room.id);
     }
     if (enemy.id === "sir_aurex") {
       pushMessage({ dialogue: "aurex_defeat" });
-      if (grantAbility("chain_grapple")) {
-        pushMessage({ key: "msg_chain_grapple_unlock" });
-      }
     } else if (enemy.id === "seraph_vale") {
       pushMessage({ dialogue: "seraph_defeat" }, 6);
       if (!game.meta.storyFlags.includes("seraph_defeated")) {
@@ -2959,7 +3868,6 @@ function damagePlayer(amount, source) {
 }
 
 function handlePlayerDeath() {
-  game.meta.ash = Math.max(0, game.meta.ash - 10);
   pushMessage({ key: "msg_player_death" });
   startNewRun();
 }
@@ -2998,23 +3906,23 @@ function tryInteract() {
     return;
   }
 
-  if (interaction.type === "archive") {
-    pushMessage({ key: "msg_archive", vars: { dialogue: d("hub_intro"), count: game.meta.memoryShards.length } });
+  if (interaction.type === "vigor_upgrade") {
+    buyTrackUpgrade("vigor");
     return;
   }
 
-  if (interaction.type === "oath") {
-    cycleOath();
-    pushMessage({ dialogue: "joren_oath" });
+  if (interaction.type === "might_upgrade") {
+    buyTrackUpgrade("might");
     return;
   }
 
-  if (interaction.type === "altar") {
-    if (grantAbility("black_wing")) {
-      pushMessage({ dialogue: "black_wing_unlock" });
-      addEffect({ type: "wing_burst", x: interaction.x, y: interaction.y, life: 0.45 });
-      updateStats();
-    }
+  if (interaction.type === "focus_upgrade") {
+    buyTrackUpgrade("focus");
+    return;
+  }
+
+  if (interaction.type === "mobility_upgrade") {
+    buyMobilityUpgrade();
     return;
   }
 
@@ -3052,8 +3960,9 @@ function claimReward() {
   game.run.claimedRewards.push(game.room.id);
   for (const reward of game.room.rewards) {
     if (reward === "ash_cache") {
-      game.meta.ash += 20;
-      pushMessage({ key: "msg_recovered_ash" });
+      const ashReward = 6;
+      game.meta.ash += ashReward;
+      pushMessage({ key: "msg_recovered_ash", vars: { amount: ashReward } });
     } else if (reward === "memory_shard") {
       const shard = `${game.room.id}_memory`;
       if (!game.meta.memoryShards.includes(shard)) {
@@ -3075,6 +3984,12 @@ function claimReward() {
 }
 
 function update(dt) {
+  if (game.screen !== "play") {
+    updateTitle(dt);
+    clearPressed();
+    return;
+  }
+
   if (!game.room) {
     loadRoom(game.run.currentRoom || "hub_sanctuary", game.run.playerSpawnTag || "start");
   }
@@ -3104,6 +4019,10 @@ function update(dt) {
 
 function draw() {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
+  if (game.screen !== "play") {
+    drawTitleScreen();
+    return;
+  }
   ctx.save();
   ctx.translate(game.camera.offsetX, game.camera.offsetY);
   drawBackground();
@@ -3125,6 +4044,199 @@ function draw() {
   if (game.victory) {
     drawVictoryOverlay();
   }
+}
+
+function drawTitleScreen() {
+  const time = game.title.time;
+  const sky = ctx.createLinearGradient(0, 0, 0, HEIGHT);
+  sky.addColorStop(0, "#18131b");
+  sky.addColorStop(0.52, "#120f15");
+  sky.addColorStop(1, "#09080c");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  const glow = ctx.createRadialGradient(WIDTH * 0.52, HEIGHT * 0.28, 60, WIDTH * 0.52, HEIGHT * 0.28, 420);
+  glow.addColorStop(0, "rgba(227,219,199,0.18)");
+  glow.addColorStop(0.45, "rgba(122,215,224,0.10)");
+  glow.addColorStop(1, "rgba(11,10,15,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  ctx.strokeStyle = "rgba(168,140,87,0.85)";
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 5; i += 1) {
+    const x = 170 + i * 315;
+    ctx.beginPath();
+    ctx.moveTo(x, HEIGHT);
+    ctx.lineTo(x, 178);
+    ctx.quadraticCurveTo(x + 72, 48, x + 146, 178);
+    ctx.lineTo(x + 146, HEIGHT);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.1;
+  ctx.strokeStyle = "rgba(122,215,224,0.8)";
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i += 1) {
+    const x = 250 + i * 360;
+    ctx.beginPath();
+    ctx.moveTo(x, 88);
+    ctx.lineTo(x + 20, 292);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 76, 88);
+    ctx.lineTo(x + 56, 252);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(WIDTH * 0.53, HEIGHT * 0.30);
+  ctx.rotate(Math.sin(time * 0.22) * 0.05);
+  ctx.strokeStyle = "rgba(168,140,87,0.68)";
+  ctx.lineWidth = 16;
+  ctx.beginPath();
+  ctx.setLineDash([280, 56, 120, 76, 154, 88]);
+  ctx.arc(0, 0, 176, -2.24, 1.08);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(122,215,224,0.32)";
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(0, 0, 146, -1.84, 0.94);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.translate(1110, 218);
+  ctx.strokeStyle = "rgba(122,215,224,0.7)";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(-76, -52);
+  ctx.lineTo(-10, -4);
+  ctx.lineTo(-52, 70);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(1160, 448);
+  ctx.globalAlpha = 0.44;
+  const mirrorGlow = ctx.createLinearGradient(0, -180, 0, 180);
+  mirrorGlow.addColorStop(0, "rgba(122,215,224,0.42)");
+  mirrorGlow.addColorStop(1, "rgba(122,215,224,0.02)");
+  ctx.fillStyle = mirrorGlow;
+  ctx.beginPath();
+  ctx.moveTo(-128, -220);
+  ctx.quadraticCurveTo(-50, -280, 0, -250);
+  ctx.quadraticCurveTo(62, -214, 92, -128);
+  ctx.quadraticCurveTo(110, -40, 84, 98);
+  ctx.quadraticCurveTo(52, 206, -26, 264);
+  ctx.quadraticCurveTo(-86, 216, -116, 140);
+  ctx.quadraticCurveTo(-148, 18, -128, -220);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(1134, 404);
+  ctx.globalAlpha = 0.74;
+  ctx.fillStyle = "rgba(214,233,236,0.78)";
+  ctx.beginPath();
+  ctx.moveTo(0, -162);
+  ctx.quadraticCurveTo(48, -142, 68, -86);
+  ctx.quadraticCurveTo(82, -36, 78, 32);
+  ctx.quadraticCurveTo(70, 102, 34, 156);
+  ctx.quadraticCurveTo(-8, 188, -40, 176);
+  ctx.quadraticCurveTo(-58, 166, -56, 132);
+  ctx.quadraticCurveTo(-48, 42, -20, -46);
+  ctx.quadraticCurveTo(-4, -112, 0, -162);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = "rgba(127,29,43,0.16)";
+  ctx.beginPath();
+  ctx.moveTo(830, 510);
+  ctx.quadraticCurveTo(900, 462, 968, 502);
+  ctx.quadraticCurveTo(1046, 554, 1082, 700);
+  ctx.quadraticCurveTo(958, 770, 814, 754);
+  ctx.quadraticCurveTo(816, 630, 830, 510);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(705, 610);
+  ctx.fillStyle = "#100E13";
+  ctx.beginPath();
+  ctx.moveTo(-12, -202);
+  ctx.quadraticCurveTo(18, -236, 70, -230);
+  ctx.quadraticCurveTo(130, -220, 160, -164);
+  ctx.quadraticCurveTo(184, -118, 180, -30);
+  ctx.quadraticCurveTo(172, 74, 156, 174);
+  ctx.quadraticCurveTo(148, 216, 122, 236);
+  ctx.quadraticCurveTo(64, 258, 10, 228);
+  ctx.quadraticCurveTo(-30, 198, -42, 150);
+  ctx.quadraticCurveTo(-60, 44, -64, -52);
+  ctx.quadraticCurveTo(-66, -134, -12, -202);
+  ctx.fill();
+  ctx.fillStyle = "rgba(127,29,43,0.58)";
+  ctx.beginPath();
+  ctx.moveTo(70, -142);
+  ctx.quadraticCurveTo(148, -68, 176, 94);
+  ctx.quadraticCurveTo(164, 164, 122, 228);
+  ctx.quadraticCurveTo(60, 236, 8, 218);
+  ctx.quadraticCurveTo(18, 78, 34, -42);
+  ctx.quadraticCurveTo(44, -112, 70, -142);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(227,219,199,0.14)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(20, -210);
+  ctx.quadraticCurveTo(60, -236, 104, -224);
+  ctx.quadraticCurveTo(142, -210, 160, -174);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(520, 642);
+  ctx.rotate(-0.12);
+  const blade = ctx.createLinearGradient(0, -200, 0, 154);
+  blade.addColorStop(0, "#F2E9D7");
+  blade.addColorStop(0.34, "#A88C57");
+  blade.addColorStop(1, "#211B22");
+  ctx.fillStyle = blade;
+  ctx.fillRect(-18, -218, 36, 320);
+  ctx.fillStyle = "#A88C57";
+  ctx.fillRect(-28, -192, 56, 18);
+  ctx.fillStyle = "#221A1F";
+  ctx.fillRect(-6, -164, 12, 124);
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = "rgba(0,0,0,0.56)";
+  ctx.beginPath();
+  ctx.ellipse(714, 820, 268, 42, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  for (let i = 0; i < 54; i += 1) {
+    const drift = (time * (12 + (i % 7))) + i * 31;
+    const x = ((i * 97) + drift * 0.8) % (WIDTH + 160) - 80;
+    const y = 120 + ((i * 53) + drift * 1.4) % 720;
+    const size = 1.6 + (i % 4) * 0.7;
+    ctx.fillStyle = i % 5 === 0 ? "rgba(122,215,224,0.35)" : "rgba(227,219,199,0.26)";
+    ctx.fillRect(x, y, size, size);
+  }
+
+  const mist = ctx.createLinearGradient(0, HEIGHT * 0.62, 0, HEIGHT);
+  mist.addColorStop(0, "rgba(15,14,18,0)");
+  mist.addColorStop(1, "rgba(8,7,10,0.84)");
+  ctx.fillStyle = mist;
+  ctx.fillRect(0, HEIGHT * 0.58, WIDTH, HEIGHT * 0.42);
 }
 
 function drawBackground() {
@@ -3289,9 +4401,12 @@ function drawGroundShadow(entity, floorY) {
 
 function drawPlayerShape(player) {
   const attack = player.attackState;
-  const attackProgress = attack ? clamp01(attack.elapsed / attack.duration) : 0;
+  const attackMotion = attack ? getAttackMotion(attack) : null;
+  const attackProgress = attackMotion ? attackMotion.totalProgress : 0;
   const motionLean = attack
-    ? lerp(-0.16, 0.18, easeInOutCubic(attackProgress))
+    ? attackMotion.inStartup
+      ? lerp(-0.04, -0.24, easeOutCubic(attackMotion.startupProgress))
+      : lerp(-0.16, 0.18, easeInOutCubic(attackMotion.swingProgress))
     : player.action === "run"
       ? 0.08
       : player.action === "dash"
@@ -3363,7 +4478,7 @@ function drawWeapon(weaponId, player, flash) {
   const localAngle = getLocalWeaponAngle(player);
   const weapon = WEAPONS[weaponId];
   const attack = player.attackState;
-  const progress = attack ? clamp01(attack.elapsed / attack.duration) : 0;
+  const progress = attack ? getAttackMotion(attack).swingProgress : 0;
   const handX = 24 + Math.cos(localAngle) * 8;
   const handY = -38 + Math.sin(localAngle) * 8;
 
@@ -3960,6 +5075,7 @@ function drawInteractables() {
   const nearest = nearestInteraction();
   for (const interactable of game.interactables) {
     const isNearest = interactable === nearest;
+    const showLabel = isNearest || distance(interactable, game.player) < interactable.radius + 54;
     ctx.save();
     ctx.translate(interactable.x, interactable.y);
     ctx.strokeStyle = isNearest ? COLORS.cyan : "rgba(227,219,199,0.55)";
@@ -3972,10 +5088,12 @@ function drawInteractables() {
     ctx.closePath();
     ctx.stroke();
 
-    ctx.fillStyle = isNearest ? COLORS.ink : COLORS.muted;
-    ctx.font = "16px Georgia";
-    ctx.textAlign = "center";
-    ctx.fillText(interactable.label, 0, -26);
+    if (showLabel) {
+      ctx.fillStyle = isNearest ? COLORS.ink : COLORS.muted;
+      ctx.font = "16px Georgia";
+      ctx.textAlign = "center";
+      ctx.fillText(interactable.label, 0, -26);
+    }
     ctx.restore();
   }
 }
@@ -4047,7 +5165,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-loadRoom(game.run.currentRoom || "hub_sanctuary", game.run.playerSpawnTag || "start");
+syncScreenState();
+renderTitleOverlay();
 applyLanguage();
-pushMessage({ key: "msg_awaken" });
 requestAnimationFrame(frame);

@@ -1,0 +1,31 @@
+<svg width="920" height="252" viewBox="0 0 920 252" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="koStroke" x1="180" y1="64" x2="700" y2="208" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8DFC9"/>
+      <stop offset="0.48" stop-color="#CDAE72"/>
+      <stop offset="1" stop-color="#7AD7E0"/>
+    </linearGradient>
+    <linearGradient id="koFill" x1="200" y1="34" x2="692" y2="224" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3ECDE"/>
+      <stop offset="0.58" stop-color="#CFB47B"/>
+      <stop offset="1" stop-color="#C8C4BE"/>
+    </linearGradient>
+    <radialGradient id="koRingGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(670 126) rotate(90) scale(76 76)">
+      <stop stop-color="#7AD7E0" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#7AD7E0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="koShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+  <rect width="920" height="252" fill="transparent"/>
+  <g filter="url(#koShadow)">
+    <text x="48" y="136" fill="url(#koFill)" font-family="Georgia, 'Times New Roman', serif" font-size="104" font-weight="700" letter-spacing="10">블랙 헤일로</text>
+    <text x="52" y="220" fill="#A88C57" fill-opacity="0.8" font-family="Georgia, 'Times New Roman', serif" font-size="20" letter-spacing="8">영웅을 계승하는 왕국의 전쟁 기계</text>
+    <path d="M672 54C706 54 736 68 756 94C776 119 784 149 778 182C774 206 760 226 738 240" stroke="url(#koStroke)" stroke-width="10" stroke-linecap="round" stroke-dasharray="184 30 60 36"/>
+    <circle cx="670" cy="128" r="74" fill="url(#koRingGlow)"/>
+    <path d="M640 46L626 74" stroke="#7F1D2B" stroke-width="5" stroke-linecap="round"/>
+    <path d="M738 80L758 104" stroke="#7AD7E0" stroke-width="5" stroke-linecap="round"/>
+    <path d="M706 182L738 198" stroke="#A88C57" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

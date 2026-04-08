@@ -1,0 +1,32 @@
+<svg width="920" height="240" viewBox="0 0 920 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoStroke" x1="144" y1="54" x2="702" y2="204" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8DFC9"/>
+      <stop offset="0.52" stop-color="#CDAE72"/>
+      <stop offset="1" stop-color="#7AD7E0"/>
+    </linearGradient>
+    <linearGradient id="logoFill" x1="232" y1="32" x2="632" y2="214" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F3ECDE"/>
+      <stop offset="0.58" stop-color="#CFB47B"/>
+      <stop offset="1" stop-color="#C8C4BE"/>
+    </linearGradient>
+    <radialGradient id="ringGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(644 124) rotate(90) scale(74 74)">
+      <stop stop-color="#7AD7E0" stop-opacity="0.36"/>
+      <stop offset="1" stop-color="#7AD7E0" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="logoShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#000000" flood-opacity="0.42"/>
+    </filter>
+  </defs>
+  <rect width="920" height="240" fill="transparent"/>
+  <g filter="url(#logoShadow)">
+    <text x="46" y="102" fill="url(#logoFill)" font-family="Georgia, 'Times New Roman', serif" font-size="92" font-weight="700" letter-spacing="12">BLACK</text>
+    <text x="44" y="194" fill="url(#logoFill)" font-family="Georgia, 'Times New Roman', serif" font-size="108" font-weight="700" letter-spacing="14">HALO</text>
+    <text x="48" y="228" fill="#A88C57" fill-opacity="0.8" font-family="Georgia, 'Times New Roman', serif" font-size="19" letter-spacing="8">THE SUCCESSION IS A WAR MACHINE</text>
+    <path d="M646 62C682 62 714 76 736 102C758 128 766 160 758 194C744 158 732 142 720 130C694 106 668 96 642 96C614 96 589 106 566 126C578 90 605 70 646 62Z" fill="url(#ringGlow)"/>
+    <path d="M646 50C680 50 710 64 730 90C750 115 758 145 752 178C748 202 734 222 712 236" stroke="url(#logoStroke)" stroke-width="10" stroke-linecap="round" stroke-dasharray="180 30 62 34"/>
+    <path d="M618 44L604 74" stroke="#7F1D2B" stroke-width="5" stroke-linecap="round"/>
+    <path d="M714 76L734 100" stroke="#7AD7E0" stroke-width="5" stroke-linecap="round"/>
+    <path d="M685 180L716 196" stroke="#A88C57" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

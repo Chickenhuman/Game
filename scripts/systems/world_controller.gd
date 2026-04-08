@@ -360,7 +360,7 @@ func _handle_room_clear() -> void:
 		var relic := ContentLibrary.get_relic(StringName(relic_id))
 		if relic != null:
 			player.heal(float(relic.stat_modifiers.get("room_heal", 0.0)))
-	push_message("Room cleared.")
+	push_message("Zone subdued.")
 
 func _handle_boss_defeat() -> void:
 	if boss == null:
@@ -371,7 +371,7 @@ func _handle_boss_defeat() -> void:
 	if current_room_id == &"aurex_arena":
 		play_dialogue(&"aurex_defeat")
 		if GameState.unlock_ability(&"chain_grapple"):
-			push_message("Chain Grapple unlocked.")
+			push_message("Chain Grapple is now unlocked.")
 	elif current_room_id == &"seraph_sanctum":
 		play_dialogue(&"seraph_defeat")
 		GameState.set_story_flag(&"seraph_defeated")
@@ -394,7 +394,7 @@ func _claim_room_reward() -> void:
 		match str(tag):
 			"ash_cache":
 				GameState.add_ash(20)
-				push_message("Recovered 20 Ash.")
+				push_message("Recovered 20 Imprints.")
 			"memory_shard":
 				var shard_id := "%s_memory" % room.room_id
 				GameState.award_memory_shard(StringName(shard_id))
@@ -408,7 +408,7 @@ func _claim_room_reward() -> void:
 	SaveService.save_game()
 
 func handle_player_death() -> void:
-	push_message("Cael falls. The sanctuary calls him back.")
+	push_message("Cael falls. The ward calls him back.")
 	GameState.add_ash(-10)
 	GameState.start_new_run()
 	load_current_room("start")

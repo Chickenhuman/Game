@@ -21,7 +21,7 @@
               <option value="ko">한국어</option>
             </select>
           </div>
-          <span id="roomName">Sanctuary of Ash</span>
+          <span id="roomName">Wake Ward</span>
           <span id="messageText">Awaken, fallen hero.</span>
         </div>
       </header>
@@ -29,6 +29,39 @@
       <main class="layout">
         <section class="stage">
           <canvas id="game" width="1600" height="900" aria-label="Black Halo game canvas"></canvas>
+          <div id="titleOverlay" class="title-overlay" aria-live="polite">
+            <div class="title-hero">
+              <img id="titleHeroImage" class="title-hero-image" alt="" />
+            </div>
+            <div class="title-content">
+              <div class="title-brand">
+                <img id="titleLogoImage" class="title-logo-image" alt="" />
+                <p id="titleTagline" class="title-tagline"></p>
+                <p id="titleLogline" class="title-logline"></p>
+              </div>
+              <div id="titleMenu" class="title-actions" role="group" aria-label="Title Menu">
+                <button type="button" class="title-button" data-title-action="continue"></button>
+                <button type="button" class="title-button" data-title-action="new_run"></button>
+                <button type="button" class="title-button" data-title-action="chronicle"></button>
+                <button type="button" class="title-button" data-title-action="armory"></button>
+                <button type="button" class="title-button title-button-danger" data-title-action="reset_game"></button>
+              </div>
+              <div class="title-panels">
+                <article class="card title-card title-card-primary">
+                  <p id="titlePanelEyebrow" class="title-card-eyebrow"></p>
+                  <h2 id="titlePanelTitle"></h2>
+                  <p id="titlePanelBody"></p>
+                  <div id="titlePanelList" class="title-card-list"></div>
+                </article>
+                <article class="card title-card title-card-secondary">
+                  <p id="titleSecondaryEyebrow" class="title-card-eyebrow"></p>
+                  <h2 id="titleSecondaryTitle"></h2>
+                  <div id="titleSecondaryList" class="title-card-list"></div>
+                </article>
+              </div>
+              <p id="titleControlsHint" class="title-controls-hint"></p>
+            </div>
+          </div>
         </section>
 
         <aside class="panel">
