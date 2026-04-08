@@ -67,6 +67,26 @@ h2 {
   text-align: right;
 }
 
+.language-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.language-picker label {
+  color: var(--gold);
+}
+
+.language-picker select {
+  border: 1px solid rgba(168, 140, 87, 0.35);
+  background: rgba(17, 15, 20, 0.88);
+  color: var(--ink);
+  padding: 8px 10px;
+  font: inherit;
+}
+
 #roomName {
   font-size: 24px;
 }

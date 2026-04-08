@@ -11,9 +11,16 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Black Halo</p>
-          <h1>Web Vertical Slice</h1>
+          <h1 data-i18n="heading">Web Vertical Slice</h1>
         </div>
         <div class="status">
+          <div class="language-picker">
+            <label for="languageSelect" data-i18n="language_label">Language</label>
+            <select id="languageSelect" aria-label="Language">
+              <option value="en">English</option>
+              <option value="ko">한국어</option>
+            </select>
+          </div>
           <span id="roomName">Sanctuary of Ash</span>
           <span id="messageText">Awaken, fallen hero.</span>
         </div>
@@ -26,28 +33,28 @@
 
         <aside class="panel">
           <section class="card">
-            <h2>Status</h2>
+            <h2 data-i18n="card_status">Status</h2>
             <div id="stats" class="stats"></div>
           </section>
 
           <section class="card">
-            <h2>Controls</h2>
+            <h2 data-i18n="card_controls">Controls</h2>
             <ul class="controls">
-              <li><span>Move</span><strong>Left / Right Arrow</strong></li>
-              <li><span>Jump</span><strong>Space / Up Arrow</strong></li>
-              <li><span>Light Attack</span><strong>Z</strong></li>
-              <li><span>Heavy Attack</span><strong>X</strong></li>
-              <li><span>Dash / Evade</span><strong>C</strong></li>
-              <li><span>Parry</span><strong>V</strong></li>
-              <li><span>Skill / Grapple</span><strong>A</strong></li>
-              <li><span>Interact</span><strong>Down Arrow / Enter</strong></li>
-              <li><span>New Run</span><strong>N</strong></li>
+              <li><span data-i18n="ctrl_move_label">Move</span><strong data-i18n="ctrl_move_value">Left / Right Arrow</strong></li>
+              <li><span data-i18n="ctrl_jump_label">Jump</span><strong data-i18n="ctrl_jump_value">Space / Up Arrow</strong></li>
+              <li><span data-i18n="ctrl_light_label">Light Attack</span><strong data-i18n="ctrl_light_value">Z</strong></li>
+              <li><span data-i18n="ctrl_heavy_label">Heavy Attack</span><strong data-i18n="ctrl_heavy_value">X</strong></li>
+              <li><span data-i18n="ctrl_dash_label">Dash / Evade</span><strong data-i18n="ctrl_dash_value">C</strong></li>
+              <li><span data-i18n="ctrl_parry_label">Parry</span><strong data-i18n="ctrl_parry_value">V</strong></li>
+              <li><span data-i18n="ctrl_skill_label">Skill / Grapple</span><strong data-i18n="ctrl_skill_value">A</strong></li>
+              <li><span data-i18n="ctrl_interact_label">Interact</span><strong data-i18n="ctrl_interact_value">Down Arrow / Enter</strong></li>
+              <li><span data-i18n="ctrl_new_run_label">New Run</span><strong data-i18n="ctrl_new_run_value">N</strong></li>
             </ul>
           </section>
 
           <section class="card">
-            <h2>Goal</h2>
-            <p>
+            <h2 data-i18n="card_goal">Goal</h2>
+            <p data-i18n="goal_body">
               Break through the Ashfall Bastion, defeat Sir Aurex, claim Chain Grapple,
               ascend the Reliquary, awaken Black Wing, and confront Seraph Vale.
             </p>

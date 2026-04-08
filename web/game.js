@@ -3,12 +3,14 @@ const ctx = canvas.getContext("2d");
 const roomNameEl = document.getElementById("roomName");
 const messageEl = document.getElementById("messageText");
 const statsEl = document.getElementById("stats");
+const languageSelectEl = document.getElementById("languageSelect");
 
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 const FLOOR_Y = 760;
 const GRAVITY = 2200;
 const STORAGE_KEY = "black_halo_web_save_v1";
+const LANGUAGE_KEY = "black_halo_web_lang_v1";
 const ROOM_SIZE = { width: WIDTH, height: HEIGHT };
 
 const COLORS = {
@@ -523,17 +525,264 @@ const ROOMS = {
 };
 
 const DIALOGUE = {
-  hub_intro: "Brother Niv: The kingdom named you blasphemy. The walls remember another title.",
-  mara_forge: "Mara Bellwright: Pick your edge carefully. The bastion forgives nothing.",
-  joren_oath: "Sir Joren: Every oath is a chain. Choose the one you can bear.",
-  aurex_intro: "Sir Aurex: Mercy belongs to the obedient. Kneel, and I may make your death brief.",
-  aurex_shift: "Sir Aurex: Then I will break mercy itself.",
-  aurex_defeat: "Cael Ashborne: Your mercy was another blade. I carry the chain onward.",
-  black_wing_unlock: "Memory of Cael: Even ash remembers how to rise.",
-  seraph_intro: "Seraph Vale: They made me in your image. I chose to surpass it.",
-  seraph_shift_1: "Seraph Vale: You taught the kingdom how to fear. I taught it how to endure.",
-  seraph_shift_2: "Seraph Vale: Then come, predecessor. Let the second dawn bury the first.",
-  seraph_defeat: "Seraph Vale: If I fall... do not let them make a third."
+  hub_intro: {
+    en: "Brother Niv: The kingdom named you blasphemy. The walls remember another title.",
+    ko: "니브 형제: 왕국은 당신을 신성모독이라 불렀지. 하지만 이 벽들은 다른 이름을 기억하고 있네."
+  },
+  mara_forge: {
+    en: "Mara Bellwright: Pick your edge carefully. The bastion forgives nothing.",
+    ko: "마라 벨라이트: 칼끝은 신중히 골라. 이 성채는 어떤 실수도 용서하지 않아."
+  },
+  joren_oath: {
+    en: "Sir Joren: Every oath is a chain. Choose the one you can bear.",
+    ko: "조렌 경: 모든 서약은 사슬이다. 네가 감당할 수 있는 것을 선택해라."
+  },
+  aurex_intro: {
+    en: "Sir Aurex: Mercy belongs to the obedient. Kneel, and I may make your death brief.",
+    ko: "오렉스 경: 자비는 순종하는 자의 것이다. 무릎 꿇어라. 그러면 네 죽음쯤은 짧게 끝내주마."
+  },
+  aurex_shift: {
+    en: "Sir Aurex: Then I will break mercy itself.",
+    ko: "오렉스 경: 그렇다면 자비 그 자체를 부숴주지."
+  },
+  aurex_defeat: {
+    en: "Cael Ashborne: Your mercy was another blade. I carry the chain onward.",
+    ko: "케일 애시본: 네 자비 또한 또 하나의 칼날이었다. 이제 그 사슬은 내가 짊어진다."
+  },
+  black_wing_unlock: {
+    en: "Memory of Cael: Even ash remembers how to rise.",
+    ko: "케일의 기억: 재조차도 다시 날아오르는 법을 기억한다."
+  },
+  seraph_intro: {
+    en: "Seraph Vale: They made me in your image. I chose to surpass it.",
+    ko: "세라프 베일: 그들은 나를 네 형상으로 빚었지. 하지만 나는 그걸 넘어서는 길을 택했다."
+  },
+  seraph_shift_1: {
+    en: "Seraph Vale: You taught the kingdom how to fear. I taught it how to endure.",
+    ko: "세라프 베일: 넌 왕국에 공포를 가르쳤다. 나는 견디는 법을 가르쳤지."
+  },
+  seraph_shift_2: {
+    en: "Seraph Vale: Then come, predecessor. Let the second dawn bury the first.",
+    ko: "세라프 베일: 그렇다면 와라, 선대여. 두 번째 새벽으로 첫 번째 새벽을 묻어주마."
+  },
+  seraph_defeat: {
+    en: "Seraph Vale: If I fall... do not let them make a third.",
+    ko: "세라프 베일: 내가 쓰러지더라도... 그들이 세 번째를 만들게 두진 마라."
+  }
+};
+
+const UI_TEXT = {
+  en: {
+    page_title: "Black Halo Web Vertical Slice",
+    heading: "Web Vertical Slice",
+    language_label: "Language",
+    card_status: "Status",
+    card_controls: "Controls",
+    card_goal: "Goal",
+    ctrl_move_label: "Move",
+    ctrl_move_value: "Left / Right Arrow",
+    ctrl_jump_label: "Jump",
+    ctrl_jump_value: "Space / Up Arrow",
+    ctrl_light_label: "Light Attack",
+    ctrl_light_value: "Z",
+    ctrl_heavy_label: "Heavy Attack",
+    ctrl_heavy_value: "X",
+    ctrl_dash_label: "Dash / Evade",
+    ctrl_dash_value: "C",
+    ctrl_parry_label: "Parry",
+    ctrl_parry_value: "V",
+    ctrl_skill_label: "Skill / Grapple",
+    ctrl_skill_value: "A",
+    ctrl_interact_label: "Interact",
+    ctrl_interact_value: "Down Arrow / Enter",
+    ctrl_new_run_label: "New Run",
+    ctrl_new_run_value: "N",
+    goal_body: "Break through the Ashfall Bastion, defeat Sir Aurex, claim Chain Grapple, ascend the Reliquary, awaken Black Wing, and confront Seraph Vale.",
+    canvas_label: "Black Halo game canvas",
+    hint_default: "Press Down Arrow or Enter near sigils, altars, and doors.",
+    stat_health: "Health",
+    stat_gloom: "Gloom",
+    stat_ash: "Ash",
+    stat_weapon: "Weapon",
+    stat_oath: "Oath",
+    stat_abilities: "Abilities",
+    stat_relic: "Relic",
+    stat_none: "None",
+    stat_none_yet: "None yet",
+    overlay_title: "Seraph Vale Falls",
+    overlay_body: "The cycle breaks, but only for now.",
+    overlay_restart: "Press N to begin another run.",
+    msg_run_start: "The sanctuary drags Cael back from ruin.",
+    msg_skill_fire: "{skill} tears through the sanctified air.",
+    msg_not_enough_gloom: "Not enough Gloom for a skill attack.",
+    msg_chain_grapple_ignite: "Chain Grapple ignites.",
+    msg_chain_grapple_unlock: "Chain Grapple unlocked.",
+    msg_room_cleared: "Room cleared.",
+    msg_player_death: "Cael falls. The sanctuary calls him back.",
+    msg_locked_by: "Locked by {ability}.",
+    msg_archive: "{dialogue} Memory shards: {count}.",
+    msg_defeat_defenders: "Defeat the room's defenders before claiming its reward.",
+    msg_recovered_ash: "Recovered 20 Ash.",
+    msg_memory_shard: "A memory shard crawls back into focus.",
+    msg_relic_claimed: "Relic claimed: {relic}.",
+    msg_awaken: "Awaken, fallen hero. Break the second dawn."
+  },
+  ko: {
+    page_title: "블랙 헤일로 웹 버티컬 슬라이스",
+    heading: "웹 버티컬 슬라이스",
+    language_label: "언어",
+    card_status: "상태",
+    card_controls: "조작",
+    card_goal: "목표",
+    ctrl_move_label: "이동",
+    ctrl_move_value: "좌 / 우 방향키",
+    ctrl_jump_label: "점프",
+    ctrl_jump_value: "스페이스 / 위 방향키",
+    ctrl_light_label: "약공격",
+    ctrl_light_value: "Z",
+    ctrl_heavy_label: "강공격",
+    ctrl_heavy_value: "X",
+    ctrl_dash_label: "회피 / 대시",
+    ctrl_dash_value: "C",
+    ctrl_parry_label: "패링",
+    ctrl_parry_value: "V",
+    ctrl_skill_label: "스킬 / 그래플",
+    ctrl_skill_value: "A",
+    ctrl_interact_label: "상호작용",
+    ctrl_interact_value: "아래 방향키 / Enter",
+    ctrl_new_run_label: "새 런",
+    ctrl_new_run_value: "N",
+    goal_body: "애시폴 성채를 돌파하고, 오렉스 경을 쓰러뜨려 체인 그래플을 얻은 뒤, 성유물 승강로를 올라 블랙 윙을 깨우고 세라프 베일과 결전하라.",
+    canvas_label: "블랙 헤일로 게임 캔버스",
+    hint_default: "문양, 제단, 문 근처에서 아래 방향키나 Enter를 누르세요.",
+    stat_health: "체력",
+    stat_gloom: "글룸",
+    stat_ash: "재",
+    stat_weapon: "무기",
+    stat_oath: "서약",
+    stat_abilities: "능력",
+    stat_relic: "유물",
+    stat_none: "없음",
+    stat_none_yet: "아직 없음",
+    overlay_title: "세라프 베일 격파",
+    overlay_body: "순환은 끊어졌지만, 아직 완전히 끝난 것은 아니다.",
+    overlay_restart: "다음 런을 시작하려면 N을 누르세요.",
+    msg_run_start: "성소가 케일을 다시 파멸 속에서 끌어올린다.",
+    msg_skill_fire: "{skill}가 성스러운 공기를 찢어발긴다.",
+    msg_not_enough_gloom: "스킬 공격에 필요한 글룸이 부족하다.",
+    msg_chain_grapple_ignite: "체인 그래플이 타오른다.",
+    msg_chain_grapple_unlock: "체인 그래플 해금.",
+    msg_room_cleared: "방을 정리했다.",
+    msg_player_death: "케일이 쓰러진다. 성소가 그를 다시 부른다.",
+    msg_locked_by: "{ability}가 있어야 열린다.",
+    msg_archive: "{dialogue} 기억 조각: {count}개.",
+    msg_defeat_defenders: "보상을 받으려면 먼저 이 방의 수호자들을 쓰러뜨려야 한다.",
+    msg_recovered_ash: "재 20을 회수했다.",
+    msg_memory_shard: "잊혔던 기억 조각이 다시 떠오른다.",
+    msg_relic_claimed: "유물 획득: {relic}.",
+    msg_awaken: "깨어나라, 타락한 용사여. 두 번째 새벽을 부숴라."
+  }
+};
+
+const LOCALIZED_NAMES = {
+  ko: {
+    weapons: {
+      fallen_greatblade: "타락한 대검",
+      chain_glaive: "사슬 글레이브"
+    },
+    weaponSkills: {
+      fallen_greatblade: "잿더미 파쇄",
+      chain_glaive: "비탄의 나선"
+    },
+    oaths: {
+      execution: "처형",
+      pursuit: "추적",
+      silence: "침묵"
+    },
+    relics: {
+      ember_bead: "불씨 구슬",
+      oath_nail: "서약 못",
+      veil_ribbon: "장막 리본",
+      crypt_salt: "지하묘지 소금",
+      choir_censer: "합창단 향로"
+    },
+    abilities: {
+      chain_grapple: "체인 그래플",
+      black_wing: "블랙 윙"
+    },
+    enemies: {
+      shield_paladin: "방패 성기사",
+      lancer: "창기병",
+      choir_adept: "성가 수행사제",
+      inquisitor: "심문관",
+      blessed_hound: "축복받은 사냥개"
+    },
+    bosses: {
+      sir_aurex: "오렉스 경",
+      seraph_vale: "세라프 베일"
+    },
+    rooms: {
+      hub_sanctuary: "재의 성소",
+      ashfall_gate: "애시폴 관문",
+      ashfall_rampart: "찢긴 성벽길",
+      ashfall_crypt: "지하묘지 초입",
+      reliquary_lift: "성유물 승강로",
+      aurex_arena: "자비의 전당",
+      reliquary_archive: "성유물 기록고",
+      mirror_bridge: "거울 다리",
+      mirror_choir: "유리의 합창당",
+      seraph_sanctum: "두 번째 새벽의 성소",
+      fallen_armory: "몰락한 병기고",
+      banner_ossuary: "깃발 납골당",
+      prayer_cistern: "기도의 저수조",
+      thorns_vault: "가시 금고",
+      sunken_cells: "가라앉은 감방",
+      bell_tower: "종탑",
+      scriptorium: "잊힌 필사실",
+      sealed_roof: "봉인된 옥상"
+    }
+  }
+};
+
+const LOCALIZED_LABELS = {
+  ko: {
+    "March into the Bastion": "성채로 진군",
+    "Return to Sanctuary": "성소로 돌아가기",
+    "Advance the Rampart": "성벽길로 전진",
+    "Side Path: Fallen Armory": "샛길: 몰락한 병기고",
+    "Back to the Gate": "관문으로 돌아가기",
+    "Descend the Crypt": "지하묘지로 내려가기",
+    "Side Path: Banner Ossuary": "샛길: 깃발 납골당",
+    "Climb to the Rampart": "성벽길로 올라가기",
+    "Enter the Shaft": "승강로로 진입",
+    "Side Path: Prayer Cistern": "샛길: 기도의 저수조",
+    "Return to the Crypt": "지하묘지로 돌아가기",
+    "Face Sir Aurex": "오렉스 경과 대치",
+    "Side Path: Thorns Vault": "샛길: 가시 금고",
+    "Retreat to the Lift": "승강로로 후퇴",
+    "Advance to the Archive": "기록고로 전진",
+    "Return to Aurex Hall": "오렉스 전당으로 돌아가기",
+    "Cross the Mirror Bridge": "거울 다리 건너기",
+    "Side Path: Bell Tower": "샛길: 종탑",
+    "Side Path: Sunken Cells": "샛길: 가라앉은 감방",
+    "Back to the Archive": "기록고로 돌아가기",
+    "Enter the Choir": "합창당으로 진입",
+    "Side Path: Lost Scriptorium": "샛길: 잊힌 필사실",
+    "Return to the Bridge": "다리로 돌아가기",
+    "Return to the Choir": "합창당으로 돌아가기",
+    "Confront Seraph Vale": "세라프 베일과 대치",
+    "Side Path: Sealed Roof": "샛길: 봉인된 옥상",
+    "Back to the Rampart": "성벽길로 돌아가기",
+    "Back to the Crypt": "지하묘지로 돌아가기",
+    "Back to the Lift": "승강로로 돌아가기",
+    "Back to the Bridge": "다리로 돌아가기",
+    "Back to the Choir": "합창당으로 돌아가기",
+    "Mara Bellwright: Cycle weapon": "마라 벨라이트: 무기 변경",
+    "Brother Niv: Hear memory": "니브 형제: 기억 듣기",
+    "Sir Joren: Cycle oath": "조렌 경: 서약 변경",
+    "Claim Black Wing": "블랙 윙 획득",
+    "Claim room reward": "방 보상 획득"
+  }
 };
 
 const CONTROLS = {
@@ -580,6 +829,145 @@ function wasPressed(...codes) {
 function clearPressed() {
   input.pressed.clear();
 }
+
+function loadLanguage() {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_KEY);
+    return stored === "ko" ? "ko" : "en";
+  } catch {
+    return "en";
+  }
+}
+
+let currentLanguage = loadLanguage();
+
+function interpolate(template, vars = {}) {
+  return template.replace(/\{(\w+)\}/g, (_, key) => String(vars[key] ?? ""));
+}
+
+function t(key, vars = {}) {
+  const template = UI_TEXT[currentLanguage]?.[key] ?? UI_TEXT.en[key] ?? key;
+  return interpolate(template, vars);
+}
+
+function d(key, vars = {}) {
+  const template = DIALOGUE[key]?.[currentLanguage] ?? DIALOGUE[key]?.en ?? key;
+  return interpolate(template, vars);
+}
+
+function getLocalizedName(group, id, fallback) {
+  return LOCALIZED_NAMES[currentLanguage]?.[group]?.[id] ?? fallback;
+}
+
+function getWeaponName(id) {
+  return getLocalizedName("weapons", id, WEAPONS[id]?.name || id);
+}
+
+function getWeaponSkillName(id) {
+  return getLocalizedName("weaponSkills", id, WEAPONS[id]?.skill || id);
+}
+
+function getOathName(id) {
+  return getLocalizedName("oaths", id, OATHS[id]?.name || id);
+}
+
+function getRelicName(id) {
+  return getLocalizedName("relics", id, RELICS[id]?.name || id);
+}
+
+function getAbilityName(id) {
+  return getLocalizedName("abilities", id, ABILITIES[id]?.name || id);
+}
+
+function getEnemyName(id) {
+  return getLocalizedName("enemies", id, ENEMIES[id]?.name || id);
+}
+
+function getBossName(id) {
+  return getLocalizedName("bosses", id, BOSSES[id]?.name || id);
+}
+
+function getRoomName(id) {
+  return getLocalizedName("rooms", id, ROOMS[id]?.name || id);
+}
+
+function localizeLabel(text) {
+  return LOCALIZED_LABELS[currentLanguage]?.[text] ?? text;
+}
+
+function resolveMessageToken(token) {
+  if (!token) {
+    return t("hint_default");
+  }
+  if (typeof token === "string") {
+    return token;
+  }
+  if (token.dialogue) {
+    return d(token.dialogue, token.vars);
+  }
+  if (token.key) {
+    return t(token.key, token.vars);
+  }
+  return "";
+}
+
+function refreshEntityNames() {
+  if (!window.blackHaloGame) {
+    return;
+  }
+  game.enemies.forEach((enemy) => {
+    enemy.name = enemy.isBoss ? getBossName(enemy.id) : getEnemyName(enemy.id);
+  });
+}
+
+function renderLocalizedMessage() {
+  if (!messageEl) {
+    return;
+  }
+  messageEl.textContent = resolveMessageToken(game?.messageToken);
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = currentLanguage;
+  document.title = t("page_title");
+  canvas.setAttribute("aria-label", t("canvas_label"));
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
+  if (languageSelectEl) {
+    languageSelectEl.value = currentLanguage;
+    languageSelectEl.setAttribute("aria-label", t("language_label"));
+  }
+}
+
+function applyLanguage() {
+  applyStaticTranslations();
+  if (game?.room) {
+    roomNameEl.textContent = getRoomName(game.room.id);
+    buildInteractionsForRoom(game.room);
+  } else {
+    roomNameEl.textContent = getRoomName("hub_sanctuary");
+  }
+  refreshEntityNames();
+  renderLocalizedMessage();
+  if (statsEl) {
+    updateStats();
+  }
+}
+
+function setLanguage(language) {
+  currentLanguage = language === "ko" ? "ko" : "en";
+  try {
+    localStorage.setItem(LANGUAGE_KEY, currentLanguage);
+  } catch {
+    // Ignore storage write failures.
+  }
+  applyLanguage();
+}
+
+languageSelectEl?.addEventListener("change", (event) => {
+  setLanguage(event.target.value);
+});
 
 function mulberry32(seed) {
   return function random() {
@@ -855,7 +1243,7 @@ function createEnemy(enemyId, x, y) {
   return {
     type: "enemy",
     id: enemyId,
-    name: template.name,
+    name: getEnemyName(enemyId),
     drawKind: template.drawKind,
     x,
     y,
@@ -893,7 +1281,7 @@ function createBoss(bossId, x, y) {
     ...createEnemy("inquisitor", x, y),
     type: "boss",
     id: bossId,
-    name: template.name,
+    name: getBossName(bossId),
     drawKind: template.drawKind,
     x,
     y,
@@ -1056,7 +1444,7 @@ function startNewRun(seed = Math.floor(Math.random() * 2147483647)) {
   };
   saveGame();
   loadRoom(game.run.currentRoom, "start");
-  pushMessage("The sanctuary drags Cael back from ruin.");
+  pushMessage({ key: "msg_run_start" });
 }
 
 const initialState = loadSave();
@@ -1072,6 +1460,7 @@ const game = {
   interactables: [],
   victory: false,
   message: "",
+  messageToken: null,
   messageTime: 0,
   statsPulse: 0,
   hitstop: 0,
@@ -1087,9 +1476,10 @@ const game = {
 window.blackHaloGame = game;
 
 function pushMessage(text, duration = 4.2) {
-  game.message = text;
+  game.message = resolveMessageToken(text);
+  game.messageToken = text;
   game.messageTime = duration;
-  messageEl.textContent = text;
+  renderLocalizedMessage();
 }
 
 function addEffect(effect) {
@@ -1161,9 +1551,9 @@ function loadRoom(roomId, spawnTag = "start") {
         : { x: 1180, y: 650 };
       game.enemies.push(createBoss(room.boss, bossPosition.x, bossPosition.y));
       if (room.boss === "sir_aurex") {
-        pushMessage(DIALOGUE.aurex_intro);
+        pushMessage({ dialogue: "aurex_intro" });
       } else {
-        pushMessage(DIALOGUE.seraph_intro);
+        pushMessage({ dialogue: "seraph_intro" });
       }
     }
   } else if (Array.isArray(room.enemies)) {
@@ -1179,7 +1569,7 @@ function loadRoom(roomId, spawnTag = "start") {
   }
   game.run.currentRoom = roomId;
   game.run.playerSpawnTag = spawnTag;
-  roomNameEl.textContent = room.name;
+  roomNameEl.textContent = getRoomName(room.id);
   updateStats();
   saveGame();
 }
@@ -1197,7 +1587,7 @@ function buildInteractionsForRoom(room) {
       x: pos.x,
       y: pos.y,
       radius: 80,
-      label: exit.label,
+      label: localizeLabel(exit.label),
       target: exit.target,
       spawnTag: exit.spawnTag,
       gate: exit.gate || null
@@ -1210,21 +1600,21 @@ function buildInteractionsForRoom(room) {
       x: 220,
       y: 650,
       radius: 80,
-      label: "Mara Bellwright: Cycle weapon"
+      label: localizeLabel("Mara Bellwright: Cycle weapon")
     });
     game.interactables.push({
       type: "archive",
       x: 1190,
       y: 650,
       radius: 80,
-      label: "Brother Niv: Hear memory"
+      label: localizeLabel("Brother Niv: Hear memory")
     });
     game.interactables.push({
       type: "oath",
       x: 790,
       y: 650,
       radius: 80,
-      label: "Sir Joren: Cycle oath"
+      label: localizeLabel("Sir Joren: Cycle oath")
     });
   }
 
@@ -1234,7 +1624,7 @@ function buildInteractionsForRoom(room) {
       x: 1190,
       y: 290,
       radius: 90,
-      label: "Claim Black Wing"
+      label: localizeLabel("Claim Black Wing")
     });
   }
 
@@ -1244,28 +1634,26 @@ function buildInteractionsForRoom(room) {
       x: 800,
       y: 650,
       radius: 80,
-      label: "Claim room reward"
+      label: localizeLabel("Claim room reward")
     });
   }
 }
 
 function updateStats() {
-  const weapon = WEAPONS[game.run.currentWeapon];
-  const oath = OATHS[game.run.oath];
   statsEl.innerHTML = [
-    `<div><strong>Health</strong><span>${Math.ceil(game.run.health)} / ${Math.ceil(game.run.maxHealth)}</span></div>`,
-    `<div><strong>Gloom</strong><span>${Math.ceil(game.run.gloom)} / 100</span></div>`,
-    `<div><strong>Ash</strong><span>${game.meta.ash}</span></div>`,
-    `<div><strong>Weapon</strong><span>${weapon.name}</span></div>`,
-    `<div><strong>Oath</strong><span>${oath.name}</span></div>`,
-    `<div><strong>Abilities</strong><span>${formatAbilitySummary()}</span></div>`,
-    `<div><strong>Relic</strong><span>${RELICS[game.run.relics[0]]?.name || "None"}</span></div>`
+    `<div><strong>${t("stat_health")}</strong><span>${Math.ceil(game.run.health)} / ${Math.ceil(game.run.maxHealth)}</span></div>`,
+    `<div><strong>${t("stat_gloom")}</strong><span>${Math.ceil(game.run.gloom)} / 100</span></div>`,
+    `<div><strong>${t("stat_ash")}</strong><span>${game.meta.ash}</span></div>`,
+    `<div><strong>${t("stat_weapon")}</strong><span>${getWeaponName(game.run.currentWeapon)}</span></div>`,
+    `<div><strong>${t("stat_oath")}</strong><span>${getOathName(game.run.oath)}</span></div>`,
+    `<div><strong>${t("stat_abilities")}</strong><span>${formatAbilitySummary()}</span></div>`,
+    `<div><strong>${t("stat_relic")}</strong><span>${game.run.relics[0] ? getRelicName(game.run.relics[0]) : t("stat_none")}</span></div>`
   ].join("");
 }
 
 function formatAbilitySummary() {
-  const names = game.meta.unlockedAbilities.map((id) => ABILITIES[id]?.name).filter(Boolean);
-  return names.length ? names.join(", ") : "None yet";
+  const names = game.meta.unlockedAbilities.map((id) => getAbilityName(id)).filter(Boolean);
+  return names.length ? names.join(", ") : t("stat_none_yet");
 }
 
 function getActiveRelicModifiers() {
@@ -1697,9 +2085,9 @@ function updatePlayer(dt) {
         "player_skill",
         0.55
       );
-      pushMessage(`${weapon.skill} tears through the sanctified air.`);
+      pushMessage({ key: "msg_skill_fire", vars: { skill: getWeaponSkillName(game.run.currentWeapon) } });
     } else if (player.contactMessageCooldown <= 0) {
-      pushMessage("Not enough Gloom for a skill attack.");
+      pushMessage({ key: "msg_not_enough_gloom" });
       player.contactMessageCooldown = 1.4;
     }
   } else if (wasPressed(...CONTROLS.heavyAttack) && player.attackTime <= 0 && player.skillTime <= 0) {
@@ -1812,7 +2200,7 @@ function tryActivateGrapple() {
   player.vx = 0;
   player.vy = 0;
   addEffect({ type: "grapple_line", x: player.x, y: player.y, x2: best.x, y2: best.y, life: 0.18 });
-  pushMessage("Chain Grapple ignites.");
+  pushMessage({ key: "msg_chain_grapple_ignite" });
   return true;
 }
 
@@ -2403,9 +2791,9 @@ function updateBossPhase(boss) {
     boss.phaseIndex = index;
     boss.specialCooldown = boss.phases[index].specialCooldown;
     if (boss.id === "sir_aurex") {
-      pushMessage(DIALOGUE.aurex_shift);
+      pushMessage({ dialogue: "aurex_shift" });
     } else if (boss.id === "seraph_vale") {
-      pushMessage(index === 1 ? DIALOGUE.seraph_shift_1 : DIALOGUE.seraph_shift_2);
+      pushMessage({ dialogue: index === 1 ? "seraph_shift_1" : "seraph_shift_2" });
     }
   }
 }
@@ -2495,12 +2883,12 @@ function handleEnemyDeath(enemy) {
       game.run.defeatedBosses.push(game.room.id);
     }
     if (enemy.id === "sir_aurex") {
-      pushMessage(DIALOGUE.aurex_defeat);
+      pushMessage({ dialogue: "aurex_defeat" });
       if (grantAbility("chain_grapple")) {
-        pushMessage("Chain Grapple unlocked.");
+        pushMessage({ key: "msg_chain_grapple_unlock" });
       }
     } else if (enemy.id === "seraph_vale") {
-      pushMessage(DIALOGUE.seraph_defeat, 6);
+      pushMessage({ dialogue: "seraph_defeat" }, 6);
       if (!game.meta.storyFlags.includes("seraph_defeated")) {
         game.meta.storyFlags.push("seraph_defeated");
       }
@@ -2523,7 +2911,7 @@ function handleEnemyDeath(enemy) {
       game.run.health = clamp(game.run.health + roomHeal, 0, game.run.maxHealth);
     }
     if (!enemy.isBoss) {
-      pushMessage("Room cleared.");
+      pushMessage({ key: "msg_room_cleared" });
     }
   }
 
@@ -2572,7 +2960,7 @@ function damagePlayer(amount, source) {
 
 function handlePlayerDeath() {
   game.meta.ash = Math.max(0, game.meta.ash - 10);
-  pushMessage("Cael falls. The sanctuary calls him back.");
+  pushMessage({ key: "msg_player_death" });
   startNewRun();
 }
 
@@ -2597,7 +2985,7 @@ function tryInteract() {
 
   if (interaction.type === "door") {
     if (interaction.gate && !hasAbility(interaction.gate)) {
-      pushMessage(`Locked by ${ABILITIES[interaction.gate].name}.`);
+      pushMessage({ key: "msg_locked_by", vars: { ability: getAbilityName(interaction.gate) } });
       return;
     }
     loadRoom(interaction.target, interaction.spawnTag);
@@ -2606,24 +2994,24 @@ function tryInteract() {
 
   if (interaction.type === "forge") {
     cycleWeapon();
-    pushMessage(DIALOGUE.mara_forge);
+    pushMessage({ dialogue: "mara_forge" });
     return;
   }
 
   if (interaction.type === "archive") {
-    pushMessage(`${DIALOGUE.hub_intro} Memory shards: ${game.meta.memoryShards.length}.`);
+    pushMessage({ key: "msg_archive", vars: { dialogue: d("hub_intro"), count: game.meta.memoryShards.length } });
     return;
   }
 
   if (interaction.type === "oath") {
     cycleOath();
-    pushMessage(DIALOGUE.joren_oath);
+    pushMessage({ dialogue: "joren_oath" });
     return;
   }
 
   if (interaction.type === "altar") {
     if (grantAbility("black_wing")) {
-      pushMessage(DIALOGUE.black_wing_unlock);
+      pushMessage({ dialogue: "black_wing_unlock" });
       addEffect({ type: "wing_burst", x: interaction.x, y: interaction.y, life: 0.45 });
       updateStats();
     }
@@ -2632,7 +3020,7 @@ function tryInteract() {
 
   if (interaction.type === "reward") {
     if (game.enemies.some((enemy) => enemy.health > 0)) {
-      pushMessage("Defeat the room's defenders before claiming its reward.");
+      pushMessage({ key: "msg_defeat_defenders" });
       return;
     }
     claimReward();
@@ -2665,19 +3053,19 @@ function claimReward() {
   for (const reward of game.room.rewards) {
     if (reward === "ash_cache") {
       game.meta.ash += 20;
-      pushMessage("Recovered 20 Ash.");
+      pushMessage({ key: "msg_recovered_ash" });
     } else if (reward === "memory_shard") {
       const shard = `${game.room.id}_memory`;
       if (!game.meta.memoryShards.includes(shard)) {
         game.meta.memoryShards.push(shard);
       }
-      pushMessage("A memory shard crawls back into focus.");
+      pushMessage({ key: "msg_memory_shard" });
     } else if (reward === "relic") {
       const relicIds = Object.keys(RELICS).filter((id) => !game.run.relics.includes(id));
       const random = mulberry32(game.run.seed ^ game.run.claimedRewards.length);
       const relicId = relicIds.length ? pickFrom(relicIds, random) : pickFrom(Object.keys(RELICS), random);
       game.run.relics.push(relicId);
-      pushMessage(`Relic claimed: ${RELICS[relicId].name}.`);
+      pushMessage({ key: "msg_relic_claimed", vars: { relic: getRelicName(relicId) } });
     }
   }
 
@@ -2701,7 +3089,8 @@ function update(dt) {
     game.messageTime -= simDt;
     if (game.messageTime <= 0) {
       game.message = "";
-      messageEl.textContent = "Press E near sigils, altars, and doors.";
+      game.messageToken = null;
+      renderLocalizedMessage();
     }
   }
 
@@ -3603,8 +3992,8 @@ function drawHud() {
 
   ctx.fillStyle = COLORS.muted;
   ctx.font = "18px Georgia";
-  ctx.fillText("Health", 36, 52);
-  ctx.fillText("Gloom", 36, 90);
+  ctx.fillText(t("stat_health"), 36, 52);
+  ctx.fillText(t("stat_gloom"), 36, 90);
 
   ctx.fillStyle = "#2f2230";
   ctx.fillRect(116, 34, 340, 16);
@@ -3640,11 +4029,11 @@ function drawVictoryOverlay() {
   ctx.fillStyle = COLORS.ink;
   ctx.font = "56px Georgia";
   ctx.textAlign = "center";
-  ctx.fillText("Seraph Vale Falls", WIDTH / 2, HEIGHT / 2 - 40);
+  ctx.fillText(t("overlay_title"), WIDTH / 2, HEIGHT / 2 - 40);
   ctx.font = "24px Georgia";
   ctx.fillStyle = COLORS.muted;
-  ctx.fillText("The cycle breaks, but only for now.", WIDTH / 2, HEIGHT / 2 + 10);
-  ctx.fillText("Press N to begin another run.", WIDTH / 2, HEIGHT / 2 + 52);
+  ctx.fillText(t("overlay_body"), WIDTH / 2, HEIGHT / 2 + 10);
+  ctx.fillText(t("overlay_restart"), WIDTH / 2, HEIGHT / 2 + 52);
   ctx.restore();
 }
 
@@ -3659,5 +4048,6 @@ function frame(now) {
 }
 
 loadRoom(game.run.currentRoom || "hub_sanctuary", game.run.playerSpawnTag || "start");
-pushMessage("Awaken, fallen hero. Break the second dawn.");
+applyLanguage();
+pushMessage({ key: "msg_awaken" });
 requestAnimationFrame(frame);
