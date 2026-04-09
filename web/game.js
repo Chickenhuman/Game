@@ -25,6 +25,10 @@ const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 const FLOOR_Y = 760;
 const GRAVITY = 2200;
+const JUMP_VELOCITY = 1120;
+const DOUBLE_JUMP_VELOCITY = 1040;
+const DEATH_COLLAPSE_TIME = 0.46;
+const DEATH_RESPAWN_DELAY = 1.32;
 const STORAGE_KEY = "black_halo_web_save_v1";
 const LANGUAGE_KEY = "black_halo_web_lang_v1";
 const ROOM_SIZE = { width: WIDTH, height: HEIGHT };
@@ -1847,7 +1851,8 @@ function createPlayer() {
     attackFlash: 0,
     contactMessageCooldown: 0,
     attackState: null,
-    afterimageTimer: 0
+    afterimageTimer: 0,
+    deathState: null
   };
 }
 
@@ -2394,6 +2399,7 @@ function loadRoom(roomId, spawnTag = "start") {
   game.player.doubleJumpReady = hasAbility("black_wing");
   game.player.attackState = null;
   game.player.afterimageTimer = 0;
+  game.player.deathState = null;
   applyProgressionToRun();
 
   const encounterSpots = encounterPositions(room.layout);
@@ -2638,6 +2644,10 @@ function getPlayerWeaponPose(player, overrideElapsed = null) {
 }
 
 function getLocalWeaponAngle(player, overrideElapsed = null) {
+  if (player.deathState) {
+    const collapse = easeOutCubic(clamp01(player.deathState.elapsed / DEATH_COLLAPSE_TIME));
+    return lerp(-0.26, 1.34, collapse);
+  }
   const attack = player.attackState;
   if (attack) {
     const motion = getAttackMotion(attack, overrideElapsed);
@@ -2952,12 +2962,12 @@ function updatePlayer(dt) {
 
   if (wasPressed(...CONTROLS.jump)) {
     if (player.onGround) {
-      player.vy = -700;
+      player.vy = -JUMP_VELOCITY;
       player.onGround = false;
       player.action = "jump";
     } else if (player.doubleJumpReady) {
       player.doubleJumpReady = false;
-      player.vy = -650;
+      player.vy = -DOUBLE_JUMP_VELOCITY;
       player.action = "jump";
       addEffect({
         type: "wing_burst",
@@ -3032,7 +3042,7 @@ function updatePlayer(dt) {
 
   player.x = clamp(player.x, 30, WIDTH - 30);
   if (player.y > HEIGHT + 180) {
-    handlePlayerDeath();
+    handlePlayerDeath({ x: player.x, y: player.y + 120, abyss: true });
     return;
   }
 
@@ -3863,13 +3873,138 @@ function damagePlayer(amount, source) {
   addCameraTrauma(0.35);
   flashScreen("rgba(127,29,43,0.22)", 0.14);
   if (game.run.health <= 0) {
-    handlePlayerDeath();
+    handlePlayerDeath(source);
   }
 }
 
-function handlePlayerDeath() {
+function updatePlayerDeath(dt) {
+  const player = game.player;
+  const death = player.deathState;
+  if (!death) {
+    return false;
+  }
+
+  death.elapsed += dt;
+  player.attackState = null;
+  player.attackTime = 0;
+  player.skillTime = 0;
+  player.parryTime = 0;
+  player.dashTime = 0;
+  player.dashCooldown = Math.max(player.dashCooldown, 0.18);
+  player.grappleTarget = null;
+  player.attackFlash = 0;
+  player.invulnerable = Math.max(player.invulnerable, DEATH_RESPAWN_DELAY - death.elapsed);
+  player.action = "death";
+  player.vx = lerp(player.vx, 0, player.onGround ? 0.18 : 0.035);
+  player.vy += GRAVITY * 1.08 * dt;
+  moveEntity(player, dt);
+
+  if (player.onGround && !death.groundBurstDone) {
+    death.groundBurstDone = true;
+    addEffect({
+      type: "death_impact",
+      x: player.x,
+      y: player.y + player.h * 0.5 - 6,
+      life: 0.34
+    });
+    addEffect({
+      type: "death_feathers",
+      x: player.x - player.facing * 18,
+      y: player.y - 36,
+      facing: player.facing,
+      color: COLORS.crimson,
+      life: 0.36
+    });
+    addHitstop(0.045);
+    addCameraTrauma(0.16);
+    flashScreen("rgba(127,29,43,0.14)", 0.1);
+  }
+
+  if (!player.onGround && death.trailTimer > 0) {
+    death.trailTimer = Math.max(0, death.trailTimer - dt);
+  } else if (!player.onGround && death.elapsed < DEATH_COLLAPSE_TIME) {
+    addEffect({
+      type: "afterimage",
+      x: player.x,
+      y: player.y,
+      h: player.h,
+      facing: player.facing,
+      color: "rgba(127,29,43,0.16)",
+      life: 0.12
+    });
+    death.trailTimer = 0.045;
+  }
+
+  if (death.elapsed >= DEATH_RESPAWN_DELAY) {
+    startNewRun();
+    return true;
+  }
+  return true;
+}
+
+function handlePlayerDeath(source = null) {
+  const player = game.player;
+  if (player.deathState) {
+    return;
+  }
+
+  const sourceX = Number.isFinite(source?.x) ? source.x : player.x - player.facing * 40;
+  const knockDirection = source?.abyss ? player.facing : player.x < sourceX ? -1 : 1;
+
+  player.deathState = {
+    elapsed: 0,
+    trailTimer: 0,
+    groundBurstDone: false
+  };
+  player.attackState = null;
+  player.attackTime = 0;
+  player.skillTime = 0;
+  player.parryTime = 0;
+  player.dashTime = 0;
+  player.doubleJumpReady = false;
+  player.grappleTarget = null;
+  player.facing = knockDirection;
+  player.vx = knockDirection * 300;
+  player.vy = source?.abyss ? -220 : -420;
+  player.invulnerable = DEATH_RESPAWN_DELAY;
+  player.action = "death";
+  game.run.health = 0;
+  game.projectiles = [];
+
+  addEffect({
+    type: "death_bloom",
+    x: player.x,
+    y: player.y - 52,
+    life: 0.46
+  });
+  addEffect({
+    type: "death_feathers",
+    x: player.x,
+    y: player.y - 62,
+    facing: player.facing,
+    color: COLORS.cyan,
+    life: 0.48
+  });
+  addEffect({
+    type: "death_feathers",
+    x: player.x + player.facing * 16,
+    y: player.y - 44,
+    facing: -player.facing,
+    color: COLORS.ivory,
+    life: 0.4
+  });
+  addEffect({
+    type: "death_feathers",
+    x: player.x - player.facing * 10,
+    y: player.y - 30,
+    facing: player.facing,
+    color: COLORS.crimson,
+    life: 0.34
+  });
+  addHitstop(0.09);
+  addCameraTrauma(0.5);
+  flashScreen("rgba(127,29,43,0.28)", 0.18);
   pushMessage({ key: "msg_player_death" });
-  startNewRun();
 }
 
 function nearestInteraction() {
@@ -4007,6 +4142,14 @@ function update(dt) {
       game.messageToken = null;
       renderLocalizedMessage();
     }
+  }
+
+  if (game.player.deathState) {
+    updatePlayerDeath(simDt);
+    updateEffects(simDt);
+    updateStats();
+    clearPressed();
+    return;
   }
 
   updatePlayer(simDt);
@@ -4366,7 +4509,9 @@ function drawActor(entity) {
   ctx.translate(x, y);
   ctx.scale(facing, 1);
 
-  const bob = Math.sin(performance.now() * 0.008 + x * 0.01) * 2;
+  const bob = entity.kind === "player" && entity.deathState
+    ? 0
+    : Math.sin(performance.now() * 0.008 + x * 0.01) * 2;
   ctx.translate(0, bob);
 
   if (entity.kind === "player") {
@@ -4388,8 +4533,9 @@ function drawActor(entity) {
 
 function drawGroundShadow(entity, floorY) {
   const lift = clamp01((FLOOR_Y - (entity.y + entity.h * 0.5)) / 180);
-  const width = entity.w * (entity.kind === "player" ? 0.95 : entity.isBoss ? 1.2 : 1.05);
-  const alpha = entity.kind === "player" ? 0.18 : entity.isBoss ? 0.22 : 0.14;
+  const isPlayerDeath = entity.kind === "player" && !!entity.deathState;
+  const width = entity.w * (entity.kind === "player" ? (isPlayerDeath ? 1.24 : 0.95) : entity.isBoss ? 1.2 : 1.05);
+  const alpha = entity.kind === "player" ? (isPlayerDeath ? 0.24 : 0.18) : entity.isBoss ? 0.22 : 0.14;
   ctx.save();
   ctx.translate(entity.x, floorY + 10);
   ctx.fillStyle = `rgba(0,0,0,${alpha * (1 - lift * 0.45)})`;
@@ -4399,7 +4545,61 @@ function drawGroundShadow(entity, floorY) {
   ctx.restore();
 }
 
+function drawPlayerDeathShape(player) {
+  const death = player.deathState;
+  const collapse = easeOutCubic(clamp01(death.elapsed / DEATH_COLLAPSE_TIME));
+  const settle = death.groundBurstDone
+    ? easeOutCubic(clamp01((death.elapsed - DEATH_COLLAPSE_TIME * 0.45) / (DEATH_RESPAWN_DELAY - DEATH_COLLAPSE_TIME * 0.45)))
+    : 0;
+  const auraAlpha = 0.08 * (1 - clamp01(death.elapsed / DEATH_RESPAWN_DELAY));
+  const capeDrift = 46 + collapse * 32;
+
+  ctx.save();
+  ctx.translate(-24 * collapse, 18 + collapse * 20 + settle * 18);
+  ctx.rotate(-lerp(0.18, 1.5, collapse));
+
+  ctx.fillStyle = `rgba(122,215,224,${auraAlpha * 0.7})`;
+  ctx.beginPath();
+  ctx.ellipse(-12, -82, 40, 64, -0.18, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = COLORS.crimson;
+  ctx.beginPath();
+  ctx.moveTo(-14, -74);
+  ctx.lineTo(-86, -38 + capeDrift * 0.14);
+  ctx.lineTo(-54, 18 + capeDrift * 0.08);
+  ctx.lineTo(-8, -4);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#2b252c";
+  ctx.fillRect(-10, -72, 26, 52);
+  ctx.fillRect(-22, -16, 14, 50);
+  ctx.fillRect(2, -10, 14, 44);
+  ctx.fillRect(16, -64, 15, 34);
+  ctx.fillRect(22, -34, 14, 34);
+
+  ctx.fillStyle = "#d0c7b7";
+  ctx.beginPath();
+  ctx.arc(6, -88, 16, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = `rgba(122,215,224,${0.34 + auraAlpha * 2.2})`;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(4, -96, 20, -2.6, -0.4);
+  ctx.stroke();
+
+  drawWeapon(game.run.currentWeapon, player, 0);
+  ctx.restore();
+}
+
 function drawPlayerShape(player) {
+  if (player.deathState) {
+    drawPlayerDeathShape(player);
+    return;
+  }
+
   const attack = player.attackState;
   const attackMotion = attack ? getAttackMotion(attack) : null;
   const attackProgress = attackMotion ? attackMotion.totalProgress : 0;
@@ -4925,6 +5125,59 @@ function drawEffects() {
       ctx.beginPath();
       ctx.arc(0, 0, 16 + (1 - alpha) * 42 * (effect.intensity || 1), 0, Math.PI * 2);
       ctx.stroke();
+    } else if (effect.type === "death_bloom") {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = COLORS.crimson;
+      ctx.globalAlpha = alpha * 0.22;
+      ctx.beginPath();
+      ctx.arc(0, 0, 54 + (1 - alpha) * 112, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = COLORS.ivory;
+      ctx.lineWidth = 6;
+      ctx.globalAlpha = alpha * 0.82;
+      ctx.beginPath();
+      ctx.arc(0, 0, 42 + (1 - alpha) * 94, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = COLORS.cyan;
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = alpha * 0.6;
+      ctx.beginPath();
+      ctx.arc(0, 0, 20 + (1 - alpha) * 56, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (effect.type === "death_feathers") {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = effect.color || COLORS.ivory;
+      ctx.lineWidth = 4;
+      for (let i = 0; i < 8; i += 1) {
+        const spread = -1.18 + i * 0.34 + Math.sin(effect.seed + i * 1.7) * 0.06;
+        const length = 30 + i * 8;
+        const drift = 18 + i * 6;
+        ctx.globalAlpha = alpha * (0.8 - i * 0.05);
+        ctx.save();
+        ctx.rotate(spread);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(length * (1 - alpha * 0.18), -drift * (1 - alpha));
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else if (effect.type === "death_impact") {
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = COLORS.crimson;
+      ctx.lineWidth = 6;
+      ctx.globalAlpha = alpha * 0.7;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 44 + (1 - alpha) * 110, 10 + (1 - alpha) * 24, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = COLORS.ivory;
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 5; i += 1) {
+        const offset = -80 + i * 40;
+        ctx.beginPath();
+        ctx.moveTo(offset * alpha, 0);
+        ctx.lineTo(offset + Math.sign(offset || 1) * 42 * (1 - alpha), -12 - i * 4);
+        ctx.stroke();
+      }
     } else if (effect.type === "hit_burst" || effect.type === "enemy_burst" || effect.type === "boss_burst") {
       const radius = effect.type === "boss_burst" ? 92 : 40;
       const color = effect.type === "boss_burst" ? COLORS.cyan : effect.type === "enemy_burst" ? COLORS.ivory : COLORS.crimson;
