@@ -5,7 +5,9 @@
   "scripts": {
     "web": "node web/server.mjs",
     "start": "node web/server.mjs",
-    "check:web": "node --check web/game.js"
+    "check:web": "node --check web/game.js",
+    "validate:web:data": "node tools/validate-web-remake.mjs",
+    "smoke:web": "node tools/smoke-web-server.mjs",
+    "test:web": "npm run check:web && npm run validate:web:data && npm run smoke:web"
   }
 }
-

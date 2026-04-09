@@ -4,6 +4,7 @@ const shellEl = document.querySelector(".shell");
 const roomNameEl = document.getElementById("roomName");
 const messageEl = document.getElementById("messageText");
 const statsEl = document.getElementById("stats");
+const goalTextEl = document.getElementById("goalText");
 const languageSelectEl = document.getElementById("languageSelect");
 const titleOverlayEl = document.getElementById("titleOverlay");
 const titleMenuEl = document.getElementById("titleMenu");
@@ -29,7 +30,7 @@ const JUMP_VELOCITY = 1120;
 const DOUBLE_JUMP_VELOCITY = 1040;
 const DEATH_COLLAPSE_TIME = 0.46;
 const DEATH_RESPAWN_DELAY = 1.32;
-const STORAGE_KEY = "black_halo_web_save_v1";
+const STORAGE_KEY = "black_halo_web_save_v2";
 const LANGUAGE_KEY = "black_halo_web_lang_v1";
 const ROOM_SIZE = { width: WIDTH, height: HEIGHT };
 const TITLE_ACTION_ORDER = ["continue", "new_run", "chronicle", "armory", "reset_game"];
@@ -164,6 +165,51 @@ const WEAPONS = {
         glowColor: "rgba(122,215,224,0.52)"
       }
     }
+  },
+  glass_rapier: {
+    id: "glass_rapier",
+    name: "Glass Rapier",
+    baseDamage: 8,
+    heavyDamage: 15,
+    reach: 116,
+    stagger: 0.2,
+    gloomGain: 9,
+    skill: "Mirror Cant",
+    bladeLength: 168,
+    bladeWidth: 12,
+    gripOffset: { x: 26, y: -80 },
+    profiles: {
+      light: {
+        startup: 0.06,
+        duration: 0.16,
+        activeStart: 0.12,
+        activeEnd: 0.82,
+        startAngle: -0.34,
+        endAngle: 0.18,
+        trailColor: "#efe7d4",
+        glowColor: "rgba(227,219,199,0.3)"
+      },
+      heavy: {
+        startup: 0.1,
+        duration: 0.24,
+        activeStart: 0.16,
+        activeEnd: 0.9,
+        startAngle: -0.52,
+        endAngle: 0.34,
+        trailColor: "#d8b46a",
+        glowColor: "rgba(168,140,87,0.34)"
+      },
+      skill: {
+        startup: 0.12,
+        duration: 0.3,
+        activeStart: 0.14,
+        activeEnd: 0.94,
+        startAngle: -0.64,
+        endAngle: 0.44,
+        trailColor: "#7ad7e0",
+        glowColor: "rgba(122,215,224,0.42)"
+      }
+    }
   }
 };
 
@@ -224,6 +270,11 @@ const RELICS = {
 };
 
 const ABILITIES = {
+  cinder_dive: {
+    id: "cinder_dive",
+    name: "Cinder Dive",
+    description: "Drop like a brand and shatter the space beneath you."
+  },
   chain_grapple: {
     id: "chain_grapple",
     name: "Chain Grapple",
@@ -331,6 +382,41 @@ const SIDE_ROOM_IDS = [
   "sealed_roof"
 ];
 
+const CHECKPOINTS = {
+  hub_sanctuary: { x: 336, y: 528, spawnTag: "start" },
+  ashfall_crypt: { x: 800, y: 520, spawnTag: "start" },
+  reliquary_archive: { x: 1080, y: 400, spawnTag: "start" },
+  mirror_choir: { x: 620, y: 540, spawnTag: "start" }
+};
+
+const ROOM_REWARD_POINTS = {
+  fallen_armory: { x: 1080, y: 530 },
+  banner_ossuary: { x: 800, y: 520 },
+  prayer_cistern: { x: 800, y: 520 },
+  thorns_vault: { x: 1110, y: 400 },
+  sunken_cells: { x: 1120, y: 650 },
+  bell_tower: { x: 1080, y: 400 },
+  scriptorium: { x: 1080, y: 400 },
+  sealed_roof: { x: 800, y: 480 }
+};
+
+const FIXED_ROOM_REWARDS = {
+  fallen_armory: [{ type: "weapon", weaponId: "chain_glaive" }],
+  banner_ossuary: [
+    { type: "memory_shard", shardId: "banner_ossuary_memory" },
+    { type: "relic", relicId: "ember_bead" }
+  ],
+  prayer_cistern: [{ type: "relic", relicId: "oath_nail" }],
+  thorns_vault: [{ type: "ash", amount: 6 }],
+  sunken_cells: [{ type: "relic", relicId: "crypt_salt" }],
+  bell_tower: [
+    { type: "memory_shard", shardId: "bell_tower_memory" },
+    { type: "relic", relicId: "veil_ribbon" }
+  ],
+  scriptorium: [{ type: "weapon", weaponId: "glass_rapier" }],
+  sealed_roof: [{ type: "relic", relicId: "choir_censer" }]
+};
+
 const ROOMS = {
   hub_sanctuary: {
     id: "hub_sanctuary",
@@ -339,10 +425,58 @@ const ROOMS = {
     layout: "hub",
     mainPath: true,
     exits: {
+      left: {
+        target: "bellwright_forge",
+        label: "Enter the Bellwright Forge",
+        spawnTag: "right"
+      },
       right: {
+        target: "archive_cloister",
+        label: "Enter the Archive Cloister",
+        spawnTag: "left"
+      },
+      down: {
         target: "ashfall_gate",
         label: "March into the Bastion",
-        spawnTag: "left"
+        spawnTag: "down"
+      }
+    }
+  },
+  bellwright_forge: {
+    id: "bellwright_forge",
+    name: "Bellwright Forge",
+    sector: "ashfall",
+    layout: "hub",
+    mainPath: true,
+    exits: {
+      right: { target: "hub_sanctuary", label: "Return to Wake Ward", spawnTag: "left" },
+      down: {
+        target: "fallen_armory",
+        label: "Descend to the Armory",
+        spawnTag: "down",
+        gate: "cinder_dive"
+      }
+    }
+  },
+  archive_cloister: {
+    id: "archive_cloister",
+    name: "Archive Cloister",
+    sector: "reliquary",
+    layout: "hub",
+    mainPath: true,
+    exits: {
+      left: { target: "hub_sanctuary", label: "Return to Wake Ward", spawnTag: "right" },
+      right: {
+        target: "bell_tower",
+        label: "Climb to the Bell Tower",
+        spawnTag: "up",
+        gate: "chain_grapple"
+      },
+      down: {
+        target: "sealed_roof",
+        label: "Passage to the Sealed Roof",
+        spawnTag: "right",
+        gate: "black_wing"
       }
     }
   },
@@ -354,9 +488,9 @@ const ROOMS = {
     mainPath: true,
     enemies: ["shield_paladin"],
     exits: {
-      left: { target: "hub_sanctuary", label: "Return to the Ward", spawnTag: "right" },
+      down: { target: "hub_sanctuary", label: "Return to Wake Ward", spawnTag: "down" },
       right: { target: "ashfall_rampart", label: "Advance the Rampart", spawnTag: "left" },
-      up: { target: "fallen_armory", label: "Side Path: Fallen Armory", spawnTag: "down" }
+      left: { target: "fallen_armory", label: "Side Path: Fallen Armory", spawnTag: "left" }
     }
   },
   ashfall_rampart: {
@@ -369,7 +503,7 @@ const ROOMS = {
     exits: {
       left: { target: "ashfall_gate", label: "Back to the Gate", spawnTag: "right" },
       right: { target: "ashfall_crypt", label: "Descend the Crypt", spawnTag: "left" },
-      down: { target: "banner_ossuary", label: "Side Path: Banner Ossuary", spawnTag: "up" }
+      down: { target: "banner_ossuary", label: "Side Path: Banner Ossuary", spawnTag: "down" }
     }
   },
   ashfall_crypt: {
@@ -382,7 +516,7 @@ const ROOMS = {
     exits: {
       left: { target: "ashfall_rampart", label: "Climb to the Rampart", spawnTag: "right" },
       right: { target: "reliquary_lift", label: "Enter the Shaft", spawnTag: "left" },
-      down: { target: "prayer_cistern", label: "Side Path: Prayer Cistern", spawnTag: "up" }
+      down: { target: "prayer_cistern", label: "Side Path: Prayer Cistern", spawnTag: "down" }
     }
   },
   reliquary_lift: {
@@ -399,6 +533,12 @@ const ROOMS = {
         target: "thorns_vault",
         label: "Side Path: Thorns Vault",
         spawnTag: "down",
+        gate: "chain_grapple"
+      },
+      down: {
+        target: "prayer_cistern",
+        label: "Side Path: Prayer Cistern",
+        spawnTag: "right",
         gate: "chain_grapple"
       }
     }
@@ -431,7 +571,7 @@ const ROOMS = {
       left: { target: "aurex_arena", label: "Return to Aurex Hall", spawnTag: "right" },
       right: { target: "mirror_bridge", label: "Cross the Mirror Bridge", spawnTag: "left" },
       up: { target: "bell_tower", label: "Side Path: Bell Tower", spawnTag: "down" },
-      down: { target: "sunken_cells", label: "Side Path: Sunken Cells", spawnTag: "up" }
+      down: { target: "sunken_cells", label: "Side Path: Sunken Cells", spawnTag: "down" }
     }
   },
   mirror_bridge: {
@@ -444,7 +584,7 @@ const ROOMS = {
     exits: {
       left: { target: "reliquary_archive", label: "Back to the Archive", spawnTag: "right" },
       right: { target: "mirror_choir", label: "Enter the Choir", spawnTag: "left" },
-      down: { target: "scriptorium", label: "Side Path: Lost Scriptorium", spawnTag: "up" }
+      down: { target: "scriptorium", label: "Side Path: Lost Scriptorium", spawnTag: "down" }
     }
   },
   mirror_choir: {
@@ -467,6 +607,11 @@ const ROOMS = {
         label: "Side Path: Sealed Roof",
         spawnTag: "down",
         gate: "black_wing"
+      },
+      down: {
+        target: "scriptorium",
+        label: "Descend to the Scriptorium",
+        spawnTag: "left"
       }
     }
   },
@@ -490,7 +635,18 @@ const ROOMS = {
     enemies: ["shield_paladin"],
     rewards: ["ash_cache"],
     exits: {
-      down: { target: "ashfall_gate", label: "Back to the Gate", spawnTag: "up" }
+      left: { target: "ashfall_gate", label: "Back to the Gate", spawnTag: "left" },
+      right: {
+        target: "banner_ossuary",
+        label: "Side Path: Banner Ossuary",
+        spawnTag: "left"
+      },
+      down: {
+        target: "bellwright_forge",
+        label: "Return to the Forge",
+        spawnTag: "down",
+        gate: "cinder_dive"
+      }
     }
   },
   banner_ossuary: {
@@ -502,7 +658,14 @@ const ROOMS = {
     enemies: ["blessed_hound"],
     rewards: ["memory_shard"],
     exits: {
-      up: { target: "ashfall_rampart", label: "Back to the Rampart", spawnTag: "down" }
+      left: { target: "fallen_armory", label: "Return to the Armory", spawnTag: "right" },
+      right: {
+        target: "prayer_cistern",
+        label: "Return to the Cistern",
+        spawnTag: "left",
+        gate: null
+      },
+      down: { target: "ashfall_rampart", label: "Back to the Rampart", spawnTag: "down" }
     }
   },
   prayer_cistern: {
@@ -514,7 +677,19 @@ const ROOMS = {
     enemies: ["lancer"],
     rewards: ["relic"],
     exits: {
-      up: { target: "ashfall_crypt", label: "Back to the Crypt", spawnTag: "down" }
+      down: { target: "ashfall_crypt", label: "Back to the Crypt", spawnTag: "down" },
+      left: {
+        target: "banner_ossuary",
+        label: "Return to the Ossuary",
+        spawnTag: "right",
+        gate: null
+      },
+      right: {
+        target: "reliquary_lift",
+        label: "Back to the Lift",
+        spawnTag: "down",
+        gate: "chain_grapple"
+      }
     }
   },
   thorns_vault: {
@@ -526,7 +701,13 @@ const ROOMS = {
     enemies: ["inquisitor"],
     rewards: ["ash_cache"],
     exits: {
-      down: { target: "reliquary_lift", label: "Back to the Lift", spawnTag: "up" }
+      down: { target: "reliquary_lift", label: "Back to the Lift", spawnTag: "up" },
+      right: {
+        target: "bell_tower",
+        label: "Climb to the Bell Tower",
+        spawnTag: "left",
+        gate: "chain_grapple"
+      }
     }
   },
   sunken_cells: {
@@ -538,7 +719,22 @@ const ROOMS = {
     enemies: ["shield_paladin", "choir_adept"],
     rewards: ["relic"],
     exits: {
-      up: { target: "reliquary_archive", label: "Back to the Archive", spawnTag: "down" }
+      left: {
+        target: "bell_tower",
+        label: "Back to the Bell Tower",
+        spawnTag: "right"
+      },
+      right: {
+        target: "reliquary_lift",
+        label: "Climb to the Lift",
+        spawnTag: "down",
+        gate: "cinder_dive"
+      },
+      down: {
+        target: "reliquary_archive",
+        label: "Back to the Archive",
+        spawnTag: "down"
+      }
     }
   },
   bell_tower: {
@@ -550,7 +746,24 @@ const ROOMS = {
     enemies: ["lancer"],
     rewards: ["memory_shard"],
     exits: {
-      down: { target: "reliquary_archive", label: "Back to the Archive", spawnTag: "up" }
+      down: { target: "reliquary_archive", label: "Back to the Archive", spawnTag: "up" },
+      left: {
+        target: "thorns_vault",
+        label: "Back to the Vault",
+        spawnTag: "right",
+        gate: "chain_grapple"
+      },
+      right: {
+        target: "sunken_cells",
+        label: "Span the Bell Tower",
+        spawnTag: "left"
+      },
+      up: {
+        target: "archive_cloister",
+        label: "Return to the Cloister",
+        spawnTag: "right",
+        gate: "chain_grapple"
+      }
     }
   },
   scriptorium: {
@@ -562,7 +775,14 @@ const ROOMS = {
     enemies: ["inquisitor"],
     rewards: ["relic"],
     exits: {
-      up: { target: "mirror_bridge", label: "Back to the Bridge", spawnTag: "down" }
+      down: { target: "mirror_bridge", label: "Back to the Bridge", spawnTag: "down" },
+      left: { target: "mirror_choir", label: "Return to the Choir", spawnTag: "down" },
+      right: {
+        target: "sealed_roof",
+        label: "Side Path: Sealed Roof",
+        spawnTag: "left",
+        gate: "black_wing"
+      }
     }
   },
   sealed_roof: {
@@ -574,7 +794,18 @@ const ROOMS = {
     enemies: ["blessed_hound", "lancer"],
     rewards: ["ash_cache"],
     exits: {
-      down: { target: "mirror_choir", label: "Back to the Choir", spawnTag: "up" }
+      down: { target: "mirror_choir", label: "Back to the Choir", spawnTag: "up" },
+      left: {
+        target: "scriptorium",
+        label: "Back to the Scriptorium",
+        spawnTag: "right"
+      },
+      right: {
+        target: "archive_cloister",
+        label: "Return to the Cloister",
+        spawnTag: "down",
+        gate: "black_wing"
+      }
     }
   }
 };
@@ -591,6 +822,22 @@ const DIALOGUE = {
   joren_oath: {
     en: "Sir Joren: Every oath is a chain. Choose the one you can bear.",
     ko: "조렌 경: 모든 서약은 사슬이다. 끝까지 감당할 수 있는 것을 골라라."
+  },
+  cinder_dive_unlock: {
+    en: "Memory of Cael: Prayer sank into the ash below. I learned to follow it like a falling brand.",
+    ko: "케일의 기억: 기도는 결국 아래의 재 속으로 가라앉았다. 나도 떨어지는 낙인처럼 그 뒤를 따르는 법을 배웠지."
+  },
+  niv_archive_banner: {
+    en: "Brother Niv: The ossuary kept banners cleaner than bones. Even mourning was arranged for the court's convenience.",
+    ko: "니브 형제: 저 납골당은 뼈보다 깃발을 더 깨끗이 보관했네. 애도조차 궁정의 편의에 맞춰 정리됐다는 뜻이지."
+  },
+  niv_archive_bell: {
+    en: "Brother Niv: The bell tower did not call the faithful. It timed executions, so the choir could learn when to kneel.",
+    ko: "니브 형제: 그 종탑은 신도를 부르지 않았네. 처형 시각을 맞추기 위해 울렸고, 합창단은 그 소리에 맞춰 무릎 꿇는 법을 배웠지."
+  },
+  niv_archive_final: {
+    en: "Brother Niv: The archive is no mausoleum now. It is testimony. End the engine, and let memory stop serving succession.",
+    ko: "니브 형제: 이제 기록고는 무덤이 아니라 증언이네. 그 계승 장치를 끝내게. 기억이 더는 계승을 섬기지 않도록."
   },
   aurex_intro: {
     en: "Sir Aurex: Mercy belongs to the obedient. Kneel, and I may make your death brief.",
@@ -646,13 +893,20 @@ const UI_TEXT = {
     ctrl_dash_value: "C",
     ctrl_parry_label: "Parry",
     ctrl_parry_value: "V",
-    ctrl_skill_label: "Skill / Grapple",
-    ctrl_skill_value: "A",
+    ctrl_ability_label: "Ability / Grapple",
+    ctrl_ability_value: "A",
+    ctrl_skill_label: "Weapon Skill",
+    ctrl_skill_value: "S",
     ctrl_interact_label: "Interact",
     ctrl_interact_value: "Down Arrow / Enter",
     ctrl_new_run_label: "New Run",
     ctrl_new_run_value: "N",
-    goal_body: "Break through the Ashfall Bastion, defeat Sir Aurex, claim Chain Grapple, ascend the Reliquary, awaken Black Wing, and confront Seraph Vale.",
+    goal_body: "Break through Ashfall, awaken Cinder Dive beneath the Prayer Cistern, defeat Sir Aurex for Chain Grapple, cross the Mirror, awaken Black Wing, and confront Seraph Vale.",
+    goal_seek_cinder: "Descend through Banner Ossuary into Prayer Cistern and awaken Cinder Dive.",
+    goal_seek_chain: "Use the new lower routes, reach Hall of Mercy, and defeat Sir Aurex for Chain Grapple.",
+    goal_seek_black_wing: "Cross the Reliquary and Mirror loops, then awaken Black Wing in Choir of Glass.",
+    goal_confront_seraph: "Use Black Wing to reach Seraph Sanctum. Search Sealed Roof if you want the upper loop before the final battle.",
+    goal_post_victory: "The succession engine is broken. Sweep the loops, recover relics, and finish the remaining archive memories.",
     canvas_label: "Black Halo game canvas",
     title_menu_aria: "Title Menu",
     title_status_room: "Wake Ward",
@@ -718,7 +972,7 @@ const UI_TEXT = {
     stat_weapon: "Weapon",
     stat_oath: "Oath",
     stat_abilities: "Abilities",
-    stat_growth: "Growth",
+    stat_checkpoint: "Checkpoint",
     stat_relic: "Relic",
     stat_none: "None",
     stat_none_yet: "None yet",
@@ -732,29 +986,42 @@ const UI_TEXT = {
     label_focus_next: "Focus {rank} ({cost} Imprints)",
     label_mobility_next: "{ability} ({cost} Imprints)",
     label_upgrade_maxed: "{name} Max",
+    label_attune_shrine: "Wake Ward Shrine: Attune",
+    label_claim_rewards: "Claim the room cache",
+    label_recover_weapon: "Recover {weapon}",
+    label_claim_relic: "Claim {relic}",
+    label_recover_memory_shard: "Recover Memory Shard",
+    label_recover_imprint: "Recover Imprints",
+    label_recover_echo: "Recover Echo Husk",
     overlay_title: "Seraph Vale Falls",
     overlay_body: "The cycle breaks, but only for now.",
-    overlay_restart: "Press N to begin another run.",
+    overlay_restart: "Press N to begin a new chronicle.",
     msg_run_start: "The ward drags Cael back from ruin. Imprints and etched growth remain.",
     msg_skill_fire: "{skill} tears through the sanctified air.",
     msg_not_enough_gloom: "Not enough Gloom for a skill attack.",
     msg_chain_grapple_ignite: "Chain Grapple ignites.",
     msg_chain_grapple_unlock: "Chain Grapple unlocked.",
+    msg_black_wing_unlock: "Black Wing awakened.",
     msg_room_cleared: "Room cleared.",
     msg_player_death: "Cael falls. The ward calls him back.",
     msg_locked_by: "Locked by {ability}.",
     msg_archive: "{dialogue} Memory shards: {count}.",
     msg_defeat_defenders: "Defeat the room's defenders before claiming its reward.",
     msg_recovered_ash: "Recovered {amount} Imprints.",
+    msg_lost_echo: "Cael's fallen Imprints harden into an Echo Husk.",
+    msg_echo_recovered: "Echo Husk recovered. {amount} Imprints return to Cael.",
     msg_memory_shard: "A memory shard crawls back into focus.",
     msg_relic_claimed: "Relic claimed: {relic}.",
+    msg_weapon_unlocked: "Weapon recovered: {weapon}.",
+    msg_checkpoint_attuned: "The shrine accepts Cael's imprint. Return will begin here.",
+    msg_checkpoint_blocked: "Silence the room before attuning the shrine.",
     msg_need_ash: "Need {cost} Imprints.",
     msg_upgrade_maxed: "{name} cannot grow further.",
     msg_upgrade_vigor: "Vigor rises. Max health reaches {value}.",
     msg_upgrade_might: "Might rises. Weapon damage grows by {percent}%.",
     msg_upgrade_focus: "Focus deepens. Skill cost falls to {value} Gloom.",
     msg_upgrade_mobility: "{ability} is etched into Cael's body.",
-    msg_continue_run: "The archive opens where the last run left off.",
+    msg_continue_run: "The archive opens where Cael last stood.",
     msg_awaken: "Awaken, fallen hero. Break the second dawn."
   },
   ko: {
@@ -776,13 +1043,20 @@ const UI_TEXT = {
     ctrl_dash_value: "C",
     ctrl_parry_label: "패링",
     ctrl_parry_value: "V",
-    ctrl_skill_label: "스킬 / 그래플",
-    ctrl_skill_value: "A",
+    ctrl_ability_label: "능력 / 그래플",
+    ctrl_ability_value: "A",
+    ctrl_skill_label: "무기 스킬",
+    ctrl_skill_value: "S",
     ctrl_interact_label: "상호작용",
     ctrl_interact_value: "아래 방향키 / Enter",
     ctrl_new_run_label: "새 런",
     ctrl_new_run_value: "N",
-    goal_body: "애시폴 성채를 돌파하고, 오렉스 경을 쓰러뜨려 체인 그래플을 얻은 뒤, 성유물 승강로를 올라 블랙 윙을 깨우고 세라프 베일과 결전하라.",
+    goal_body: "애시폴을 돌파하고 기도의 저수조 아래에서 신더 다이브를 깨운 뒤, 오렉스 경을 쓰러뜨려 체인 그래플을 얻고, 거울 성역을 건너 블랙 윙을 깨워 세라프 베일과 결전하라.",
+    goal_seek_cinder: "깃발 납골당을 지나 기도의 저수조로 내려가 신더 다이브를 깨워라.",
+    goal_seek_chain: "새 하층 루트를 활용해 자비의 전당까지 도달하고, 오렉스 경을 쓰러뜨려 체인 그래플을 얻어라.",
+    goal_seek_black_wing: "성유물 성역과 거울 성역의 루프를 건너 유리의 합창당에서 블랙 윙을 깨워라.",
+    goal_confront_seraph: "블랙 윙으로 세라프의 성소에 도달하라. 최종전에 앞서 상층 루프를 돌고 싶다면 봉인된 옥상을 찾아라.",
+    goal_post_victory: "계승 장치는 부서졌다. 남은 루프를 돌며 유물과 기록을 모두 회수하라.",
     canvas_label: "블랙 헤일로 게임 캔버스",
     title_menu_aria: "타이틀 메뉴",
     title_status_room: "각성실",
@@ -848,7 +1122,7 @@ const UI_TEXT = {
     stat_weapon: "무기",
     stat_oath: "서약",
     stat_abilities: "능력",
-    stat_growth: "성장",
+    stat_checkpoint: "귀환점",
     stat_relic: "유물",
     stat_none: "없음",
     stat_none_yet: "아직 없음",
@@ -862,29 +1136,42 @@ const UI_TEXT = {
     label_focus_next: "집중 {rank}단계 ({cost} 각인)",
     label_mobility_next: "{ability} ({cost} 각인)",
     label_upgrade_maxed: "{name} 강화 완료",
+    label_attune_shrine: "각성실 성소: 동조",
+    label_claim_rewards: "구역 보상 회수",
+    label_recover_weapon: "{weapon} 회수",
+    label_claim_relic: "{relic} 획득",
+    label_recover_memory_shard: "기억 조각 회수",
+    label_recover_imprint: "각인 회수",
+    label_recover_echo: "메아리 허물 회수",
     overlay_title: "세라프 베일 격파",
     overlay_body: "순환은 끊어졌지만, 아직 완전히 끝난 것은 아니다.",
-    overlay_restart: "다음 런을 시작하려면 N을 누르세요.",
+    overlay_restart: "새 연대기를 시작하려면 N을 누르세요.",
     msg_run_start: "각성실이 케일을 파멸의 끝에서 다시 끌어올린다. 각인과 새겨진 성장은 남는다.",
     msg_skill_fire: "{skill}가 성스러운 공기를 찢어발긴다.",
     msg_not_enough_gloom: "스킬 공격에 필요한 글룸이 부족하다.",
     msg_chain_grapple_ignite: "체인 그래플이 타오른다.",
     msg_chain_grapple_unlock: "체인 그래플이 개방되었다.",
+    msg_black_wing_unlock: "블랙 윙이 깨어났다.",
     msg_room_cleared: "구역을 제압했다.",
     msg_player_death: "케일이 쓰러졌다. 각성실이 그를 다시 불러낸다.",
     msg_locked_by: "{ability}가 있어야 열린다.",
     msg_archive: "{dialogue} 기억 조각: {count}개.",
     msg_defeat_defenders: "보상을 손에 넣으려면 먼저 이 구역의 수호자들을 쓰러뜨려야 한다.",
     msg_recovered_ash: "각인 {amount}을 회수했다.",
+    msg_lost_echo: "케일이 흘린 각인이 메아리 허물로 굳어졌다.",
+    msg_echo_recovered: "메아리 허물을 회수했다. 각인 {amount}이 돌아온다.",
     msg_memory_shard: "잊힌 기억 조각이 되살아난다.",
     msg_relic_claimed: "유물 획득: {relic}.",
+    msg_weapon_unlocked: "무기 회수: {weapon}.",
+    msg_checkpoint_attuned: "성소가 케일의 각인을 받아들인다. 이제 여기서 되돌아온다.",
+    msg_checkpoint_blocked: "먼저 이 구역의 적막을 되찾아야 성소에 동조할 수 있다.",
     msg_need_ash: "{cost} 각인이 필요하다.",
     msg_upgrade_maxed: "{name}은 더 이상 강화할 수 없다.",
     msg_upgrade_vigor: "강인함이 높아진다. 최대 체력이 {value}가 된다.",
     msg_upgrade_might: "위력이 높아진다. 무기 공격력이 {percent}% 상승한다.",
     msg_upgrade_focus: "집중이 깊어진다. 스킬 소모가 글룸 {value}로 줄어든다.",
     msg_upgrade_mobility: "{ability}가 케일의 육신에 새겨진다.",
-    msg_continue_run: "기록고가 지난 런이 멈춘 자리에서 다시 열린다.",
+    msg_continue_run: "기록고가 케일이 마지막으로 멈춘 자리에서 다시 열린다.",
     msg_awaken: "깨어나라, 타락한 용사여. 두 번째 새벽을 부숴라."
   }
 };
@@ -899,7 +1186,8 @@ const LOCALIZED_NAMES = {
     },
     weaponSkills: {
       fallen_greatblade: "후광 파쇄",
-      chain_glaive: "비탄의 나선"
+      chain_glaive: "비탄의 나선",
+      glass_rapier: "거울 성가"
     },
     oaths: {
       execution: "처형",
@@ -914,6 +1202,7 @@ const LOCALIZED_NAMES = {
       choir_censer: "합창단 향로"
     },
     abilities: {
+      cinder_dive: "신더 다이브",
       chain_grapple: "체인 그래플",
       black_wing: "블랙 윙"
     },
@@ -930,6 +1219,8 @@ const LOCALIZED_NAMES = {
     },
     rooms: {
       hub_sanctuary: "각성실",
+      bellwright_forge: "벨라이트 대장간",
+      archive_cloister: "기록고 회랑",
       ashfall_gate: "애시폴 관문",
       ashfall_rampart: "찢긴 성벽길",
       ashfall_crypt: "지하묘지 초입",
@@ -954,6 +1245,10 @@ const LOCALIZED_NAMES = {
 const LOCALIZED_LABELS = {
   ko: {
     "March into the Bastion": "성채로 진군",
+    "Enter the Bellwright Forge": "벨라이트 대장간으로 들어가기",
+    "Enter the Archive Cloister": "기록고 회랑으로 들어가기",
+    "Climb to the Archive Cloister": "기록고 회랑으로 오르기",
+    "Return to Wake Ward": "각성실로 돌아가기",
     "Return to the Ward": "각성실로 돌아가기",
     "Advance the Rampart": "성벽길로 전진",
     "Side Path: Fallen Armory": "샛길: 몰락한 병기고",
@@ -984,6 +1279,27 @@ const LOCALIZED_LABELS = {
     "Back to the Lift": "승강로로 돌아가기",
     "Back to the Bridge": "다리로 돌아가기",
     "Back to the Choir": "합창당으로 돌아가기",
+    "Lift to the Rampart": "성벽길 승강기로 이동",
+    "Return to the Forge": "대장간으로 돌아가기",
+    "Descend to the Armory": "병기고로 내려가기",
+    "Return to the Armory": "병기고로 돌아가기",
+    "Return to the Ossuary": "납골당으로 돌아가기",
+    "Climb to the Armory": "병기고로 오르기",
+    "Return to the Cistern": "저수조로 돌아가기",
+    "Traverse the Lower Cells": "하층 감방으로 건너가기",
+    "Descend to the Sunken Cells": "가라앉은 감방으로 내려가기",
+    "Climb to the Lift": "승강로로 오르기",
+    "Climb to the Bell Tower": "종탑으로 오르기",
+    "Back to the Vault": "금고로 돌아가기",
+    "Back to the Bell Tower": "종탑으로 돌아가기",
+    "Span the Bell Tower": "종탑 상층을 건너기",
+    "Traverse the Upper Archive": "상층 기록고로 가기",
+    "Return to the Cloister": "회랑으로 돌아가기",
+    "Ascend to the Sealed Roof": "봉인된 옥상으로 오르기",
+    "Passage to the Sealed Roof": "봉인된 옥상 통로로 이동",
+    "Descend to the Scriptorium": "필사실로 내려가기",
+    "Back to the Scriptorium": "필사실로 돌아가기",
+    "Claim Cinder Dive": "신더 다이브 획득",
     "Mara Bellwright: Cycle weapon": "마라 벨라이트: 무기 전환",
     "Brother Niv: Hear memory": "니브 형제: 기억 듣기",
     "Sir Joren: Cycle oath": "조렌 경: 서약 변경",
@@ -1006,6 +1322,8 @@ const LOCALIZED_PROPER_NOUNS = {
     ["Sir Aurex", "오렉스 경"],
     ["Seraph Vale", "세라프 베일"],
     ["Wake Ward", "각성실"],
+    ["Bellwright Forge", "벨라이트 대장간"],
+    ["Archive Cloister", "기록고 회랑"],
     ["Ashfall Bastion", "애시폴 성채"],
     ["Ashfall Crypt", "애시폴 지하묘지"],
     ["Ashfall Gate", "애시폴 관문"],
@@ -1024,6 +1342,7 @@ const LOCALIZED_PROPER_NOUNS = {
     ["Choir of Glass", "유리의 합창당"],
     ["Lost Scriptorium", "잊힌 필사실"],
     ["Sealed Roof", "봉인된 옥상"],
+    ["Cinder Dive", "신더 다이브"],
     ["Black Wing", "블랙 윙"],
     ["Chain Grapple", "체인 그래플"],
     ["Mercy Broken", "부서진 자비"],
@@ -1049,7 +1368,8 @@ const CONTROLS = {
   heavyAttack: ["KeyX"],
   dash: ["KeyC"],
   parry: ["KeyV"],
-  skill: ["KeyA"],
+  ability: ["KeyA"],
+  skill: ["KeyS"],
   interact: ["ArrowDown", "Enter"],
   newRun: ["KeyN"]
 };
@@ -1183,6 +1503,61 @@ function getRoomName(id) {
 
 function localizeLabel(text) {
   return localizeProperNouns(LOCALIZED_LABELS[currentLanguage]?.[text] ?? text);
+}
+
+function getRoomRewardEntries(roomId) {
+  return FIXED_ROOM_REWARDS[roomId] ? [...FIXED_ROOM_REWARDS[roomId]] : [];
+}
+
+function getRoomRewardPosition(roomId) {
+  return ROOM_REWARD_POINTS[roomId] || { x: 800, y: 650 };
+}
+
+function getRewardInteractionLabel(roomId) {
+  const rewards = getRoomRewardEntries(roomId);
+  if (!rewards.length) {
+    return t("label_claim_rewards");
+  }
+  if (rewards.length > 1) {
+    return t("label_claim_rewards");
+  }
+  const reward = rewards[0];
+  if (reward.type === "weapon") {
+    return t("label_recover_weapon", { weapon: getWeaponName(reward.weaponId) });
+  }
+  if (reward.type === "relic") {
+    return t("label_claim_relic", { relic: getRelicName(reward.relicId) });
+  }
+  if (reward.type === "memory_shard") {
+    return t("label_recover_memory_shard");
+  }
+  return t("label_recover_imprint");
+}
+
+function getCurrentObjectiveKey() {
+  if (game?.meta?.storyFlags?.includes("seraph_defeated")) {
+    return "goal_post_victory";
+  }
+  if (!game?.meta) {
+    return "goal_body";
+  }
+  if (!hasAbility("cinder_dive")) {
+    return "goal_seek_cinder";
+  }
+  if (!hasAbility("chain_grapple")) {
+    return "goal_seek_chain";
+  }
+  if (!hasAbility("black_wing")) {
+    return "goal_seek_black_wing";
+  }
+  return "goal_confront_seraph";
+}
+
+function renderGoalText() {
+  if (!goalTextEl) {
+    return;
+  }
+  goalTextEl.textContent = t(getCurrentObjectiveKey());
 }
 
 function resolveMessageToken(token) {
@@ -1448,6 +1823,7 @@ function applyLanguage() {
   }
   refreshEntityNames();
   renderLocalizedMessage();
+  renderGoalText();
   if (statsEl && game?.screen === "play") {
     updateStats();
   }
@@ -1624,7 +2000,7 @@ function closestPointOnSegment(px, py, ax, ay, bx, by) {
 function createDefaultMeta() {
   return {
     unlockedAbilities: [],
-    unlockedWeapons: ["fallen_greatblade", "chain_glaive"],
+    unlockedWeapons: ["fallen_greatblade"],
     memoryShards: [],
     storyFlags: ["intro_awake"],
     ash: 0,
@@ -1632,20 +2008,11 @@ function createDefaultMeta() {
   };
 }
 
-function pickSideRooms(seed) {
-  const random = mulberry32(seed ^ 0x7f4a7c15);
-  const pool = [...SIDE_ROOM_IDS];
-  const picked = [];
-  while (pool.length && picked.length < 4) {
-    const index = Math.floor(random() * pool.length);
-    picked.push(pool.splice(index, 1)[0]);
-  }
-  return picked;
+function getAllSideRooms() {
+  return [...SIDE_ROOM_IDS];
 }
 
 function createRun(seed = Math.floor(Math.random() * 2147483647), meta = createDefaultMeta()) {
-  const random = mulberry32(seed);
-  const relicIds = Object.keys(RELICS);
   const growth = derivePlayerGrowth(meta);
   return {
     seed,
@@ -1653,15 +2020,20 @@ function createRun(seed = Math.floor(Math.random() * 2147483647), meta = createD
     health: growth.maxHealth,
     maxHealth: growth.maxHealth,
     gloom: 0,
-    relics: [pickFrom(relicIds, random)],
+    relics: [],
     visitedRooms: ["hub_sanctuary"],
     defeatedBosses: [],
     claimedRewards: [],
-    activeSideRooms: pickSideRooms(seed),
+    activeSideRooms: getAllSideRooms(),
     temporaryCurrency: 0,
     currentWeapon: meta.unlockedWeapons[0] || "fallen_greatblade",
     oath: "execution",
-    playerSpawnTag: "start"
+    playerSpawnTag: "start",
+    checkpointRoom: "hub_sanctuary",
+    checkpointSpawnTag: "start",
+    lostAshRoom: "",
+    lostAshAmount: 0,
+    lostAshPosition: null
   };
 }
 
@@ -1677,7 +2049,7 @@ function sanitizeMeta(raw) {
     ? raw.unlockedWeapons.filter((id) => WEAPONS[id])
     : [...meta.unlockedWeapons];
   if (!meta.unlockedWeapons.length) {
-    meta.unlockedWeapons = ["fallen_greatblade", "chain_glaive"];
+    meta.unlockedWeapons = ["fallen_greatblade"];
   }
   meta.memoryShards = Array.isArray(raw.memoryShards) ? [...new Set(raw.memoryShards)] : [];
   meta.storyFlags = Array.isArray(raw.storyFlags) ? [...new Set(raw.storyFlags)] : ["intro_awake"];
@@ -1700,9 +2072,6 @@ function sanitizeRun(raw, meta) {
   run.health = Number.isFinite(raw.health) ? clamp(raw.health, 0, growth.maxHealth) : run.health;
   run.gloom = Number.isFinite(raw.gloom) ? clamp(raw.gloom, 0, 100) : 0;
   run.relics = Array.isArray(raw.relics) ? raw.relics.filter((id) => RELICS[id]) : [];
-  if (!run.relics.length) {
-    run.relics = createRun(run.seed, meta).relics;
-  }
   run.visitedRooms = Array.isArray(raw.visitedRooms)
     ? raw.visitedRooms.filter((id) => ROOMS[id])
     : ["hub_sanctuary"];
@@ -1714,9 +2083,9 @@ function sanitizeRun(raw, meta) {
     : [];
   run.activeSideRooms = Array.isArray(raw.activeSideRooms)
     ? raw.activeSideRooms.filter((id) => SIDE_ROOM_IDS.includes(id))
-    : pickSideRooms(run.seed);
+    : getAllSideRooms();
   if (!run.activeSideRooms.length) {
-    run.activeSideRooms = pickSideRooms(run.seed);
+    run.activeSideRooms = getAllSideRooms();
   }
   run.temporaryCurrency = Number.isFinite(raw.temporaryCurrency)
     ? Math.floor(raw.temporaryCurrency)
@@ -1726,9 +2095,16 @@ function sanitizeRun(raw, meta) {
     : meta.unlockedWeapons[0] || "fallen_greatblade";
   run.oath = OATHS[raw.oath] ? raw.oath : "execution";
   run.playerSpawnTag = typeof raw.playerSpawnTag === "string" ? raw.playerSpawnTag : "start";
-  if (!ROOMS[run.currentRoom].mainPath && !run.activeSideRooms.includes(run.currentRoom)) {
-    run.currentRoom = "hub_sanctuary";
-  }
+  run.checkpointRoom = ROOMS[raw.checkpointRoom] ? raw.checkpointRoom : "hub_sanctuary";
+  run.checkpointSpawnTag = typeof raw.checkpointSpawnTag === "string" ? raw.checkpointSpawnTag : "start";
+  run.lostAshRoom = ROOMS[raw.lostAshRoom] ? raw.lostAshRoom : "";
+  run.lostAshAmount = Number.isFinite(raw.lostAshAmount) ? Math.max(0, Math.floor(raw.lostAshAmount)) : 0;
+  run.lostAshPosition = raw.lostAshPosition && Number.isFinite(raw.lostAshPosition.x) && Number.isFinite(raw.lostAshPosition.y)
+    ? {
+        x: clamp(raw.lostAshPosition.x, 80, WIDTH - 80),
+        y: clamp(raw.lostAshPosition.y, 120, HEIGHT - 140)
+      }
+    : null;
   return run;
 }
 
@@ -1752,7 +2128,9 @@ function isMeaningfulSavedRun(rawRun, run, meta) {
     listChanged(run.relics, baseline.relics) ||
     run.defeatedBosses.length > 0 ||
     run.claimedRewards.length > 0 ||
-    run.temporaryCurrency > 0
+    run.temporaryCurrency > 0 ||
+    run.checkpointRoom !== baseline.checkpointRoom ||
+    run.lostAshAmount > 0
   );
 }
 
@@ -1844,6 +2222,7 @@ function createPlayer() {
     action: "idle",
     heavyAttack: false,
     skillTime: 0,
+    diveTime: 0,
     parryTime: 0,
     invulnerable: 0,
     doubleJumpReady: false,
@@ -2033,17 +2412,108 @@ function grantAbility(abilityId) {
   return true;
 }
 
-function isRoomActive(roomId) {
-  const room = ROOMS[roomId];
-  if (!room) {
+function grantWeapon(weaponId) {
+  if (!WEAPONS[weaponId] || game.meta.unlockedWeapons.includes(weaponId)) {
     return false;
   }
-  return room.mainPath || game.run.activeSideRooms.includes(roomId);
+  game.meta.unlockedWeapons.push(weaponId);
+  saveGame();
+  return true;
+}
+
+function getArchiveDialogueKey() {
+  if (game.meta.storyFlags.includes("seraph_defeated")) {
+    return "niv_archive_final";
+  }
+  if (game.meta.memoryShards.includes("bell_tower_memory")) {
+    return "niv_archive_bell";
+  }
+  if (game.meta.memoryShards.includes("banner_ossuary_memory")) {
+    return "niv_archive_banner";
+  }
+  return "hub_intro";
+}
+
+function attuneCheckpoint(spawnTag = "start") {
+  if (game.enemies.some((enemy) => enemy.health > 0)) {
+    pushMessage({ key: "msg_checkpoint_blocked" });
+    return false;
+  }
+  game.run.checkpointRoom = game.room?.id || "hub_sanctuary";
+  game.run.checkpointSpawnTag = spawnTag;
+  game.run.gloom = 0;
+  applyProgressionToRun({ fullHeal: true });
+  updateStats();
+  saveGame();
+  pushMessage({ key: "msg_checkpoint_attuned" });
+  return true;
+}
+
+function stashLostAsh(position = null) {
+  const amount = Math.max(0, Math.floor(game.meta.ash || 0));
+  game.run.lostAshRoom = "";
+  game.run.lostAshAmount = 0;
+  game.run.lostAshPosition = null;
+  if (amount <= 0 || !game.room) {
+    game.meta.ash = 0;
+    return 0;
+  }
+  const point = position || { x: game.player.x, y: game.player.y - 18 };
+  game.run.lostAshRoom = game.room.id;
+  game.run.lostAshAmount = amount;
+  game.run.lostAshPosition = {
+    x: clamp(point.x, 80, WIDTH - 80),
+    y: clamp(point.y, 120, HEIGHT - 140)
+  };
+  game.meta.ash = 0;
+  return amount;
+}
+
+function recoverEchoHusk() {
+  const amount = Math.max(0, Math.floor(game.run.lostAshAmount || 0));
+  if (amount <= 0) {
+    return false;
+  }
+  game.meta.ash += amount;
+  game.run.lostAshRoom = "";
+  game.run.lostAshAmount = 0;
+  game.run.lostAshPosition = null;
+  buildInteractionsForRoom(game.room);
+  updateStats();
+  saveGame();
+  pushMessage({ key: "msg_echo_recovered", vars: { amount } });
+  return true;
+}
+
+function respawnAtCheckpoint() {
+  const checkpointRoom = game.run.checkpointRoom || "hub_sanctuary";
+  const checkpointSpawnTag = game.run.checkpointSpawnTag || "start";
+  applyProgressionToRun({ fullHeal: true });
+  game.run.gloom = 0;
+  loadRoom(checkpointRoom, checkpointSpawnTag);
+  game.enemies = [];
+  game.player.invulnerable = 0.9;
+  addEffect({
+    type: "windup_glow",
+    x: game.player.x,
+    y: game.player.y - 48,
+    color: COLORS.cyan,
+    life: 0.18
+  });
+  flashScreen("rgba(122,215,224,0.16)", 0.08);
+  buildInteractionsForRoom(game.room);
+  updateStats();
+  saveGame();
+  if (game.run.lostAshAmount > 0) {
+    pushMessage({ key: "msg_lost_echo" });
+  }
+}
+
+function isRoomActive(roomId) {
+  return !!ROOMS[roomId];
 }
 
 function startNewRun(seed = Math.floor(Math.random() * 2147483647)) {
-  const relicIds = Object.keys(RELICS);
-  const random = mulberry32(seed);
   const growth = derivePlayerGrowth(game.meta);
   game.run = {
     seed,
@@ -2051,15 +2521,20 @@ function startNewRun(seed = Math.floor(Math.random() * 2147483647)) {
     health: growth.maxHealth,
     maxHealth: growth.maxHealth,
     gloom: 0,
-    relics: [pickFrom(relicIds, random)],
+    relics: [],
     visitedRooms: ["hub_sanctuary"],
     defeatedBosses: [],
     claimedRewards: [],
-    activeSideRooms: pickSideRooms(seed),
+    activeSideRooms: getAllSideRooms(),
     temporaryCurrency: 0,
     currentWeapon: game.meta.unlockedWeapons[0] || "fallen_greatblade",
     oath: "execution",
-    playerSpawnTag: "start"
+    playerSpawnTag: "start",
+    checkpointRoom: "hub_sanctuary",
+    checkpointSpawnTag: "start",
+    lostAshRoom: "",
+    lostAshAmount: 0,
+    lostAshPosition: null
   };
   saveGame();
   loadRoom(game.run.currentRoom, "start");
@@ -2392,6 +2867,7 @@ function loadRoom(roomId, spawnTag = "start") {
   game.player.dashTime = 0;
   game.player.attackTime = 0;
   game.player.skillTime = 0;
+  game.player.diveTime = 0;
   game.player.parryTime = 0;
   game.player.invulnerable = 0;
   game.player.grappleTarget = null;
@@ -2453,7 +2929,7 @@ function buildInteractionsForRoom(room) {
     });
   });
 
-  if (room.id === "hub_sanctuary") {
+  if (room.id === "bellwright_forge") {
     game.interactables.push({
       type: "forge",
       x: 220,
@@ -2462,42 +2938,78 @@ function buildInteractionsForRoom(room) {
       label: localizeLabel("Mara Bellwright: Cycle weapon")
     });
     game.interactables.push({
-      type: "vigor_upgrade",
-      x: 336,
-      y: 528,
-      radius: 80,
-      label: buildTrackUpgradeLabel("vigor")
-    });
-    game.interactables.push({
-      type: "might_upgrade",
+      type: "oath",
       x: 790,
       y: 650,
       radius: 80,
-      label: buildTrackUpgradeLabel("might")
-    });
-    game.interactables.push({
-      type: "focus_upgrade",
-      x: 1188,
-      y: 650,
-      radius: 80,
-      label: buildTrackUpgradeLabel("focus")
-    });
-    game.interactables.push({
-      type: "mobility_upgrade",
-      x: 1226,
-      y: 498,
-      radius: 80,
-      label: buildMobilityUpgradeLabel()
+      label: localizeLabel("Sir Joren: Cycle oath")
     });
   }
 
-  if (room.rewards && room.rewards.length && !game.run.claimedRewards.includes(room.id)) {
+  if (room.id === "archive_cloister") {
     game.interactables.push({
-      type: "reward",
-      x: 800,
+      type: "archive",
+      x: 1188,
       y: 650,
       radius: 80,
-      label: localizeLabel("Claim room reward")
+      label: localizeLabel("Brother Niv: Hear memory")
+    });
+  }
+
+  if (CHECKPOINTS[room.id]) {
+    const checkpoint = CHECKPOINTS[room.id];
+    game.interactables.push({
+      type: "checkpoint",
+      x: checkpoint.x,
+      y: checkpoint.y,
+      radius: 80,
+      label: t("label_attune_shrine"),
+      spawnTag: checkpoint.spawnTag
+    });
+  }
+
+  if (room.id === "prayer_cistern" && !hasAbility("cinder_dive")) {
+    game.interactables.push({
+      type: "altar",
+      x: 800,
+      y: 520,
+      radius: 80,
+      label: localizeLabel("Claim Cinder Dive"),
+      abilityId: "cinder_dive",
+      dialogue: "cinder_dive_unlock"
+    });
+  }
+
+  if (room.id === "mirror_choir" && !hasAbility("black_wing")) {
+    game.interactables.push({
+      type: "altar",
+      x: 1180,
+      y: 290,
+      radius: 80,
+      label: localizeLabel("Claim Black Wing"),
+      abilityId: "black_wing",
+      dialogue: "black_wing_unlock"
+    });
+  }
+
+  if (game.run.lostAshRoom === room.id && game.run.lostAshAmount > 0 && game.run.lostAshPosition) {
+    game.interactables.push({
+      type: "echo_husk",
+      x: game.run.lostAshPosition.x,
+      y: game.run.lostAshPosition.y,
+      radius: 80,
+      label: t("label_recover_echo")
+    });
+  }
+
+  if (getRoomRewardEntries(room.id).length && !game.run.claimedRewards.includes(room.id)) {
+    const rewardPos = getRoomRewardPosition(room.id);
+    game.interactables.push({
+      type: "reward",
+      x: rewardPos.x,
+      y: rewardPos.y,
+      radius: 80,
+      label: getRewardInteractionLabel(room.id)
     });
   }
 }
@@ -2510,14 +3022,24 @@ function updateStats() {
     `<div><strong>${t("stat_weapon")}</strong><span>${getWeaponName(game.run.currentWeapon)}</span></div>`,
     `<div><strong>${t("stat_oath")}</strong><span>${getOathName(game.run.oath)}</span></div>`,
     `<div><strong>${t("stat_abilities")}</strong><span>${formatAbilitySummary()}</span></div>`,
-    `<div><strong>${t("stat_growth")}</strong><span>${formatGrowthSummary()}</span></div>`,
-    `<div><strong>${t("stat_relic")}</strong><span>${game.run.relics[0] ? getRelicName(game.run.relics[0]) : t("stat_none")}</span></div>`
+    `<div><strong>${t("stat_checkpoint")}</strong><span>${formatCheckpointSummary()}</span></div>`,
+    `<div><strong>${t("stat_relic")}</strong><span>${formatRelicSummary()}</span></div>`
   ].join("");
+  renderGoalText();
 }
 
 function formatAbilitySummary() {
   const names = game.meta.unlockedAbilities.map((id) => getAbilityName(id)).filter(Boolean);
   return names.length ? names.join(", ") : t("stat_none_yet");
+}
+
+function formatCheckpointSummary() {
+  return getRoomName(game.run.checkpointRoom || "hub_sanctuary");
+}
+
+function formatRelicSummary() {
+  const names = game.run.relics.map((id) => getRelicName(id)).filter(Boolean);
+  return names.length ? names.join(", ") : t("stat_none");
 }
 
 function getActiveRelicModifiers() {
@@ -2898,6 +3420,7 @@ function updatePlayer(dt) {
   player.dashCooldown = Math.max(0, player.dashCooldown - dt);
   player.attackTime = Math.max(0, player.attackTime - dt);
   player.skillTime = Math.max(0, player.skillTime - dt);
+  player.diveTime = Math.max(0, player.diveTime - dt);
   player.parryTime = Math.max(0, player.parryTime - dt);
   player.invulnerable = Math.max(0, player.invulnerable - dt);
   player.attackFlash = Math.max(0, player.attackFlash - dt);
@@ -2931,13 +3454,11 @@ function updatePlayer(dt) {
     player.doubleJumpReady = hasAbility("black_wing");
   }
 
-  if (wasPressed(...CONTROLS.newRun)) {
-    startNewRun();
-    clearPressed();
-    return;
-  }
-
-  if (player.dashTime > 0) {
+  if (player.diveTime > 0) {
+    player.vx = lerp(player.vx, 0, 0.28);
+    player.vy = Math.max(player.vy, 1040);
+    player.action = "dash";
+  } else if (player.dashTime > 0) {
     player.vx = player.facing * 920;
     player.action = "dash";
   } else if (player.attackState) {
@@ -2981,17 +3502,21 @@ function updatePlayer(dt) {
   if (wasPressed(...CONTROLS.parry)) {
     player.parryTime = 0.24 + (oath.parryBonus || 0) + (relicMods.parryBonus || 0);
     player.action = "parry";
-  } else if (wasPressed(...CONTROLS.dash) && player.dashCooldown <= 0 && player.attackTime <= 0 && player.skillTime <= 0) {
+  } else if (wasPressed(...CONTROLS.dash) && player.dashCooldown <= 0 && player.attackTime <= 0 && player.skillTime <= 0 && player.diveTime <= 0) {
     player.dashTime = 0.16;
     player.dashCooldown = 0.4;
     player.invulnerable = 0.2;
     addCameraTrauma(0.08);
-  } else if (wasPressed(...CONTROLS.skill) && player.skillTime <= 0) {
+  } else if (wasPressed(...CONTROLS.ability) && player.attackTime <= 0 && player.skillTime <= 0) {
     if (hasAbility("chain_grapple") && tryActivateGrapple()) {
       player.skillTime = 0.3;
       player.invulnerable = 0.18;
       player.action = "dash";
-    } else if (game.run.gloom >= growth.skillCost) {
+    } else if (hasAbility("cinder_dive") && startCinderDive()) {
+      player.action = "dash";
+    }
+  } else if (wasPressed(...CONTROLS.skill) && player.skillTime <= 0 && player.diveTime <= 0) {
+    if (game.run.gloom >= growth.skillCost) {
       game.run.gloom = Math.max(0, game.run.gloom - growth.skillCost);
       startPlayerAttack("skill");
       const direction = player.facing;
@@ -3023,6 +3548,10 @@ function updatePlayer(dt) {
 
   player.vy += GRAVITY * dt;
   moveEntity(player, dt);
+  if (player.diveTime > 0 && player.onGround) {
+    player.diveTime = 0;
+    resolveCinderDiveImpact();
+  }
   updatePlayerAttack(dt);
 
   if ((player.dashTime > 0 || (player.attackState && player.attackState.kind !== "light")) && player.afterimageTimer <= 0) {
@@ -3046,7 +3575,7 @@ function updatePlayer(dt) {
     return;
   }
 
-  if (player.attackTime <= 0 && player.skillTime <= 0 && player.dashTime <= 0) {
+  if (player.attackTime <= 0 && player.skillTime <= 0 && player.dashTime <= 0 && player.diveTime <= 0) {
     if (!player.onGround) {
       player.action = "jump";
     } else if (Math.abs(player.vx) > 8) {
@@ -3123,6 +3652,65 @@ function tryActivateGrapple() {
   addEffect({ type: "grapple_line", x: player.x, y: player.y, x2: best.x, y2: best.y, life: 0.18 });
   pushMessage({ key: "msg_chain_grapple_ignite" });
   return true;
+}
+
+function startCinderDive() {
+  const player = game.player;
+  if (player.onGround || player.diveTime > 0) {
+    return false;
+  }
+  player.diveTime = 0.42;
+  player.attackState = null;
+  player.attackTime = 0;
+  player.skillTime = Math.max(player.skillTime, 0.16);
+  player.vx = 0;
+  player.vy = Math.max(player.vy, 980);
+  player.action = "dash";
+  player.invulnerable = Math.max(player.invulnerable, 0.14);
+  addEffect({
+    type: "afterimage",
+    x: player.x,
+    y: player.y,
+    h: player.h,
+    facing: player.facing,
+    color: "rgba(216,180,106,0.26)",
+    life: 0.12
+  });
+  addCameraTrauma(0.06);
+  return true;
+}
+
+function resolveCinderDiveImpact() {
+  const player = game.player;
+  const impact = { x: player.x, y: player.y + player.h * 0.5 - 8 };
+  addEffect({
+    type: "death_impact",
+    x: impact.x,
+    y: impact.y,
+    life: 0.28
+  });
+  addEffect({
+    type: "rush_arc",
+    x: player.x,
+    y: player.y - 12,
+    facing: player.facing,
+    life: 0.18
+  });
+  flashScreen("rgba(216,180,106,0.16)", 0.08);
+  addCameraTrauma(0.18);
+  addHitstop(0.04);
+  gainGloom(10);
+
+  for (const enemy of game.enemies) {
+    if (enemy.health <= 0 || Math.hypot(enemy.x - player.x, enemy.y - player.y) > 150) {
+      continue;
+    }
+    enemy.health -= 20;
+    enemy.stun = Math.max(enemy.stun, 0.38);
+    enemy.hurtFlash = 0.14;
+    enemy.vx = Math.sign(enemy.x - player.x || player.facing) * 180;
+    enemy.vy = -260;
+  }
 }
 
 function getPlayerHitCenter() {
@@ -3805,7 +4393,10 @@ function handleEnemyDeath(enemy) {
       game.run.defeatedBosses.push(game.room.id);
     }
     if (enemy.id === "sir_aurex") {
-      pushMessage({ dialogue: "aurex_defeat" });
+      if (grantAbility("chain_grapple")) {
+        applyProgressionToRun();
+      }
+      pushMessage({ key: "msg_chain_grapple_unlock" });
     } else if (enemy.id === "seraph_vale") {
       pushMessage({ dialogue: "seraph_defeat" }, 6);
       if (!game.meta.storyFlags.includes("seraph_defeated")) {
@@ -3834,6 +4425,8 @@ function handleEnemyDeath(enemy) {
     }
   }
 
+  buildInteractionsForRoom(game.room);
+  updateStats();
   saveGame();
 }
 
@@ -3888,6 +4481,7 @@ function updatePlayerDeath(dt) {
   player.attackState = null;
   player.attackTime = 0;
   player.skillTime = 0;
+  player.diveTime = 0;
   player.parryTime = 0;
   player.dashTime = 0;
   player.dashCooldown = Math.max(player.dashCooldown, 0.18);
@@ -3936,7 +4530,7 @@ function updatePlayerDeath(dt) {
   }
 
   if (death.elapsed >= DEATH_RESPAWN_DELAY) {
-    startNewRun();
+    respawnAtCheckpoint();
     return true;
   }
   return true;
@@ -3959,6 +4553,7 @@ function handlePlayerDeath(source = null) {
   player.attackState = null;
   player.attackTime = 0;
   player.skillTime = 0;
+  player.diveTime = 0;
   player.parryTime = 0;
   player.dashTime = 0;
   player.doubleJumpReady = false;
@@ -3970,6 +4565,7 @@ function handlePlayerDeath(source = null) {
   player.action = "death";
   game.run.health = 0;
   game.projectiles = [];
+  stashLostAsh(source?.abyss ? { x: player.x, y: HEIGHT - 110 } : null);
 
   addEffect({
     type: "death_bloom",
@@ -4004,6 +4600,7 @@ function handlePlayerDeath(source = null) {
   addHitstop(0.09);
   addCameraTrauma(0.5);
   flashScreen("rgba(127,29,43,0.28)", 0.18);
+  saveGame();
   pushMessage({ key: "msg_player_death" });
 }
 
@@ -4038,6 +4635,48 @@ function tryInteract() {
   if (interaction.type === "forge") {
     cycleWeapon();
     pushMessage({ dialogue: "mara_forge" });
+    return;
+  }
+
+  if (interaction.type === "oath") {
+    cycleOath();
+    pushMessage({ dialogue: "joren_oath" });
+    return;
+  }
+
+  if (interaction.type === "archive") {
+    pushMessage({
+      key: "msg_archive",
+      vars: {
+        dialogue: d(getArchiveDialogueKey()),
+        count: game.meta.memoryShards.length
+      }
+    }, 5.8);
+    return;
+  }
+
+  if (interaction.type === "checkpoint") {
+    attuneCheckpoint(interaction.spawnTag || "start");
+    return;
+  }
+
+  if (interaction.type === "altar") {
+    if (game.enemies.some((enemy) => enemy.health > 0)) {
+      pushMessage({ key: "msg_defeat_defenders" });
+      return;
+    }
+    if (grantAbility(interaction.abilityId || "black_wing")) {
+      applyProgressionToRun();
+      buildInteractionsForRoom(game.room);
+      updateStats();
+      saveGame();
+      pushMessage({ dialogue: interaction.dialogue || "black_wing_unlock" }, 5.2);
+    }
+    return;
+  }
+
+  if (interaction.type === "echo_husk") {
+    recoverEchoHusk();
     return;
   }
 
@@ -4088,34 +4727,43 @@ function cycleOath() {
 }
 
 function claimReward() {
-  if (!game.room.rewards || game.run.claimedRewards.includes(game.room.id)) {
+  const rewards = getRoomRewardEntries(game.room.id);
+  if (!rewards.length || game.run.claimedRewards.includes(game.room.id)) {
     return;
   }
 
   game.run.claimedRewards.push(game.room.id);
-  for (const reward of game.room.rewards) {
-    if (reward === "ash_cache") {
-      const ashReward = 6;
-      game.meta.ash += ashReward;
-      pushMessage({ key: "msg_recovered_ash", vars: { amount: ashReward } });
-    } else if (reward === "memory_shard") {
-      const shard = `${game.room.id}_memory`;
-      if (!game.meta.memoryShards.includes(shard)) {
-        game.meta.memoryShards.push(shard);
+  const rewardMessages = [];
+  for (const reward of rewards) {
+    if (reward.type === "ash") {
+      const amount = Math.max(0, Math.floor(reward.amount || 0));
+      if (amount > 0) {
+        game.meta.ash += amount;
+        rewardMessages.push(t("msg_recovered_ash", { amount }));
       }
-      pushMessage({ key: "msg_memory_shard" });
-    } else if (reward === "relic") {
-      const relicIds = Object.keys(RELICS).filter((id) => !game.run.relics.includes(id));
-      const random = mulberry32(game.run.seed ^ game.run.claimedRewards.length);
-      const relicId = relicIds.length ? pickFrom(relicIds, random) : pickFrom(Object.keys(RELICS), random);
-      game.run.relics.push(relicId);
-      pushMessage({ key: "msg_relic_claimed", vars: { relic: getRelicName(relicId) } });
+    } else if (reward.type === "memory_shard") {
+      const shardId = reward.shardId || `${game.room.id}_memory`;
+      if (!game.meta.memoryShards.includes(shardId)) {
+        game.meta.memoryShards.push(shardId);
+      }
+      rewardMessages.push(t("msg_memory_shard"));
+    } else if (reward.type === "relic" && RELICS[reward.relicId] && !game.run.relics.includes(reward.relicId)) {
+      game.run.relics.push(reward.relicId);
+      rewardMessages.push(t("msg_relic_claimed", { relic: getRelicName(reward.relicId) }));
+    } else if (reward.type === "weapon" && WEAPONS[reward.weaponId]) {
+      if (grantWeapon(reward.weaponId)) {
+        game.run.currentWeapon = reward.weaponId;
+        rewardMessages.push(t("msg_weapon_unlocked", { weapon: getWeaponName(reward.weaponId) }));
+      }
     }
   }
 
   buildInteractionsForRoom(game.room);
   updateStats();
   saveGame();
+  if (rewardMessages.length) {
+    pushMessage(rewardMessages.join(" "));
+  }
 }
 
 function update(dt) {

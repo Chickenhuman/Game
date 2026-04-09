@@ -4,8 +4,13 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(normalize(join(fileURLToPath(new URL("..", import.meta.url)))));
-const host = "127.0.0.1";
+const host = process.env.HOST || "0.0.0.0";
 const port = Number(process.env.PORT || 4173);
+const localHost = host === "0.0.0.0" ? "127.0.0.1" : host;
+const forwardedUrl =
+  process.env.CODESPACE_NAME && process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
+    ? `https://${process.env.CODESPACE_NAME}-${port}.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`
+    : null;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -42,5 +47,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Black Halo web build running at http://${host}:${port}`);
+  console.log(`Black Halo web build running at http://${localHost}:${port}`);
+  if (forwardedUrl) {
+    console.log(`Black Halo Codespaces URL: ${forwardedUrl}`);
+  }
 });

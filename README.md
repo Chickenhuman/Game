@@ -52,11 +52,18 @@ Local server option:
 The web build currently includes:
 
 - side-scrolling combat with light, heavy, dash, parry, and skill attacks
-- hub interactions for weapon and oath switching
-- fixed main route plus seeded side rooms
-- `Chain Grapple` and `Black Wing` unlocks
+- split hub wings for forge and archive functions
+- fixed world progression with looped side routes and checkpoint respawn
+- `Cinder Dive`, `Chain Grapple`, and `Black Wing` unlocks
 - `Sir Aurex` and `Seraph Vale` boss fights
 - local save via browser storage
+
+Web validation commands:
+
+1. `npm run check:web`
+2. `npm run validate:web:data`
+3. `npm run smoke:web`
+4. `npm run test:web`
 
 ## Next steps in a Godot-enabled environment
 
